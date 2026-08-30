@@ -1094,40 +1094,20 @@ COMPOSITIONS.stats = {
   }
 };
 
-/* ═══════════════ 9. LAYOUT ENGINE (overflow downgrade) ═══════════════ */
-function tryLayout(doc, compositionKey){
-  const comp = COMPOSITIONS[compositionKey];
-  doc.layout = comp.layout(doc);
-  const overflow = doc.layout.some(p=>p.type==='text' && p._fitPending);
-  return doc.layout;
-}
-function buildLayout(doc){
-  let attempt = 0;
-  while(attempt<3){
-    const comp = COMPOSITIONS[doc.visualDirection.composition];
-    doc.layout = comp.layout(doc);
-    const scratch = document.createElement('canvas').getContext('2d');
-    let anyOverflow = false;
-    doc.layout.forEach(p=>{
-      if(p.type==='text'){
-        const fontFamily = p.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
-        const fit = fitTextToBox(scratch, p.text, p.box, {minPx:p.sizeRange[0], maxPx:p.sizeRange[1], fontWeight:p.fontWeight||400, fontFamily, maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase, italic:!!p.italic});
-        if(fit.overflow) anyOverflow = true;
-      }
-    });
-    if(!anyOverflow) break;
-    if(attempt===0 && doc.visualDirection.composition!=='minimal'){
-      doc.visualDirection = Object.assign({}, doc.visualDirection, {composition:'minimal'});
-      doc.copy = CopyEngine.build(doc);
-    } else if(doc.event.description){
-      doc.event = Object.assign({}, doc.event, {description:''});
-      doc.copy = CopyEngine.build(doc);
-    } else {
-      break;
+/* ═══════════════ 9. LAYOUT ENGINE (overflow detection) ═══════════════ */
+let _overflowScratchCtx = null;
+function scanOverflow(doc){
+  if(!_overflowScratchCtx) _overflowScratchCtx = document.createElement('canvas').getContext('2d');
+  let anyOverflow = false;
+  (doc.layout||[]).forEach(p=>{
+    if(p.type==='text'){
+      const fontFamily = p.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
+      const fit = fitTextToBox(_overflowScratchCtx, p.text, p.box, {minPx:p.sizeRange[0], maxPx:p.sizeRange[1], fontWeight:p.fontWeight||400, fontFamily, maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase, italic:!!p.italic});
+      p._fit = fit;
+      if(fit.overflow) anyOverflow = true;
     }
-    attempt++;
-  }
-  return doc.layout;
+  });
+  return anyOverflow;
 }
 
 /* ═══════════════ 10. PREFLIGHT QA ═══════════════ */
@@ -1217,31 +1197,55 @@ const ExportPipeline = {
   }
 };
 
-/* ═══════════════ 12. REGENERATION ═══════════════ */
-function generateVariant(baseDoc, variant){
+/* ═══════════════ 12. CANDIDATE GENERATION ═══════════════ */
+function cloneDocForCandidate(baseDoc){
   const doc = JSON.parse(JSON.stringify(baseDoc, (k,v)=> k==='_img'||k==='_logoImg' ? undefined : v));
   doc.assets.photos.forEach((p,i)=>{ p._img = baseDoc.assets.photos[i]._img; });
   doc.assets.partnerLogos.forEach((l,i)=>{ l._img = baseDoc.assets.partnerLogos[i]._img; });
   doc._logoImg = baseDoc._logoImg;
   doc._hasLogo = baseDoc._hasLogo;
-
-  if(variant==='minimal'){
-    doc.visualDirection = { composition:'minimal', paletteVariant:'professional', decorationIntensity:'low',
-      photoTreatment: doc.assets.photos.length?'inset-contain':'none', switchNote:null };
-  } else {
-    if(variant==='bold') doc.event.tone = 'more-bold';
-    doc.visualDirection = selectVisualDirection(doc);
-  }
+  return doc;
+}
+// Builds one candidate poster for a specific composition, holding palette/decoration fixed so every
+// candidate in a gallery is directly comparable — only the composition itself varies. If the composition's
+// natural layout overflows, we try dropping the (optional) description once — but never switch composition,
+// since that would misrepresent what this specific design actually looks like.
+function buildCandidateDoc(baseDoc, compositionKey, paletteVariant, decorationIntensity){
+  const doc = cloneDocForCandidate(baseDoc);
+  doc.visualDirection = { composition:compositionKey, paletteVariant, decorationIntensity, photoTreatment:'', switchNote:null };
   doc.copy = CopyEngine.build(doc);
-  doc.palette = resolvePalette(doc.brand, doc.visualDirection.paletteVariant);
-  buildLayout(doc);
+  doc.palette = resolvePalette(doc.brand, paletteVariant);
+  const comp = COMPOSITIONS[compositionKey];
+  doc.layout = comp.layout(doc);
+  let overflow = scanOverflow(doc);
+  if(overflow && doc.event.description){
+    doc.event = Object.assign({}, doc.event, {description:''});
+    doc.copy = CopyEngine.build(doc);
+    doc.layout = comp.layout(doc);
+    overflow = scanOverflow(doc);
+  }
   doc.qa = PreflightQA.run(doc);
   return doc;
+}
+// Every composition whose canRender() succeeds for the current event/assets becomes a candidate —
+// this is what makes the design gallery extensible: adding a new entry to COMPOSITIONS is enough for
+// it to appear here automatically, no wizard changes needed.
+function generateAllCandidates(baseDoc){
+  const vd = selectVisualDirection(baseDoc);
+  const candidates = [];
+  Object.keys(COMPOSITIONS).forEach(key=>{
+    const comp = COMPOSITIONS[key];
+    if(!comp.canRender(baseDoc).ok) return;
+    const doc = buildCandidateDoc(baseDoc, key, vd.paletteVariant, vd.decorationIntensity);
+    candidates.push({ key, displayName: comp.displayName, recommended: key===vd.composition, doc });
+  });
+  candidates.sort((a,b)=> (b.recommended?1:0) - (a.recommended?1:0));
+  return candidates;
 }
 
 /* ═══════════════ 13. WIZARD UI ═══════════════ */
 const STEPS = ['Event','Assets','Format','Generate','Review'];
-const state = { step:1, doc:newPosterDocument(), variants:{}, selectedVariant:'recommended' };
+const state = { step:1, doc:newPosterDocument(), candidates:[], selectedVariant:null };
 
 function renderStepNav(){
   const nav = document.getElementById('stepNav');
@@ -1280,17 +1284,15 @@ const Wizard = {
     showPanel(4);
     await preloadImages(state.doc);
     await new Promise(r=>setTimeout(r,300));
-    state.variants.recommended = generateVariant(state.doc,'recommended');
-    state.variants.bold = generateVariant(state.doc,'bold');
-    state.variants.minimal = generateVariant(state.doc,'minimal');
-    state.selectedVariant = 'recommended';
+    state.candidates = generateAllCandidates(state.doc);
+    state.selectedVariant = (state.candidates.find(c=>c.recommended) || state.candidates[0]).key;
     showPanel(5);
     renderStudio();
     saveDraft();
   },
   regenerate(){ this.generate(); },
   exportPoster(fmt){
-    const doc = state.variants[state.selectedVariant];
+    const doc = getSelectedDoc();
     if(doc.qa.status==='fail'){ showToast('Fix the issues in the QA panel before exporting'); return; }
     if(fmt==='png') ExportPipeline.toPNG(doc);
     else if(fmt==='jpeg') ExportPipeline.toJPEG(doc);
@@ -1323,8 +1325,12 @@ function preloadImages(doc){
   return Promise.all(jobs);
 }
 
+function getSelectedDoc(){
+  const c = state.candidates.find(c=>c.key===state.selectedVariant);
+  return c ? c.doc : state.candidates[0].doc;
+}
 function renderStudio(){
-  const doc = state.variants[state.selectedVariant];
+  const doc = getSelectedDoc();
   const canvas = document.getElementById('stageCanvas');
   const maxEdge = 720;
   const scale = maxEdge/Math.max(doc.format.widthPx, doc.format.heightPx);
@@ -1335,23 +1341,39 @@ function renderStudio(){
   paintPoster(ctx, doc);
   ctx.setTransform(1,0,0,1,0,0);
 
+  document.getElementById('galleryCount').textContent = `${state.candidates.length} design${state.candidates.length===1?'':'s'} —`;
+
   const strip = document.getElementById('variantStrip');
   strip.innerHTML = '';
-  ['recommended','bold','minimal'].forEach(key=>{
-    const v = state.variants[key];
+  state.candidates.forEach(c=>{
+    const v = c.doc;
     const wrap = document.createElement('div');
-    wrap.className = 'variant-thumb'+(key===state.selectedVariant?' active':'');
-    wrap.onclick = ()=>{ state.selectedVariant=key; renderStudio(); };
+    wrap.className = 'variant-thumb'+(c.key===state.selectedVariant?' active':'');
+    wrap.onclick = ()=>{ state.selectedVariant=c.key; renderStudio(); };
     const tc = document.createElement('canvas');
-    const ts = 140/Math.max(v.format.widthPx,v.format.heightPx);
+    const ts = 200/Math.max(v.format.widthPx,v.format.heightPx);
     tc.width = v.format.widthPx*ts; tc.height = v.format.heightPx*ts;
     const tctx = tc.getContext('2d');
     tctx.setTransform(ts,0,0,ts,0,0);
     paintPoster(tctx, v);
+    if(v.qa.status==='fail'){
+      const warnBadge = document.createElement('div');
+      warnBadge.className = 'vt-warn';
+      warnBadge.title = 'This design has an issue — check it before exporting';
+      warnBadge.textContent = '!';
+      wrap.appendChild(warnBadge);
+    }
     const label = document.createElement('div');
     label.className = 'vt-label';
-    label.textContent = key;
-    wrap.appendChild(tc); wrap.appendChild(label);
+    label.textContent = c.displayName;
+    wrap.appendChild(tc);
+    if(c.recommended){
+      const badge = document.createElement('span');
+      badge.className = 'vt-badge';
+      badge.textContent = 'Recommended';
+      wrap.appendChild(badge);
+    }
+    wrap.appendChild(label);
     strip.appendChild(wrap);
   });
 

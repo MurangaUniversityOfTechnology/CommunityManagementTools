@@ -187,9 +187,15 @@
   <!-- STEP 5: REVIEW / STUDIO -->
   <section class="studio" id="panel-5">
     <div class="studio-layout">
-      <div class="stage"><canvas id="stageCanvas"></canvas></div>
+      <div class="stage-col">
+        <div class="stage"><canvas id="stageCanvas"></canvas></div>
+        <div class="gallery-head">
+          <span id="galleryCount"></span>
+          <span class="opt" style="text-transform:none">Every design your event info currently supports — click to compare</span>
+        </div>
+        <div class="variant-gallery" id="variantStrip"></div>
+      </div>
       <div class="side-panel">
-        <div class="variant-strip" id="variantStrip"></div>
         <div class="qa-box" id="qaBox"></div>
         <div class="action-box">
           <button class="action-btn" onclick="Wizard.regenerate()">↻ Regenerate</button>
