@@ -153,7 +153,10 @@ body{
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── MAIN WRAPPER ── */
-.main{max-width:960px;margin:0 auto;padding:36px 32px 80px}
+.main{max-width:1440px;margin:0 auto;padding:36px 32px 80px}
+.app-layout{display:flex;gap:32px;align-items:flex-start}
+.form-col{flex:1 1 620px;min-width:0;max-width:960px}
+.preview-col{flex:1 1 480px;min-width:0;position:sticky;top:88px;align-self:flex-start;max-height:calc(100vh - 108px);display:flex;flex-direction:column}
 
 /* ── SECTION CARD ── */
 .card{
@@ -490,6 +493,53 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
   margin-left:6px;
 }
 
+/* ── LIVE PREVIEW ── */
+.preview-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.preview-header .dot{width:7px;height:7px;border-radius:50%;background:#2e9e5b;box-shadow:0 0 0 3px rgba(46,158,91,0.18)}
+.preview-header .lbl{font-family:'DM Mono',monospace;font-size:0.66rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.preview-scroll{overflow-y:auto;padding-bottom:20px}
+.preview-paper{
+  background:#fff;border:1px solid var(--border);border-radius:2px;
+  box-shadow:0 6px 30px rgba(26,39,68,0.14);
+  font-family:Georgia,'Times New Roman',serif;
+  color:#1a1a1a;
+}
+.pv-cover{background:var(--navy);padding:26px 24px 16px;position:relative}
+.pv-cover::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--gold)}
+.pv-cover .pv-title{font-style:italic;font-weight:700;font-size:1.5rem;color:#fff}
+.pv-cover .pv-sub{font-family:'DM Sans',sans-serif;font-size:0.72rem;color:#c8bf9a;margin-top:6px}
+.pv-cover .pv-gen{font-family:'DM Sans',sans-serif;font-size:0.6rem;color:#8f8564;margin-top:10px}
+.pv-body{padding:22px 24px 28px}
+.pv-section-h{display:flex;align-items:center;gap:8px;background:var(--navy);color:#fff;font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.66rem;letter-spacing:0.06em;text-transform:uppercase;padding:6px 10px;margin:20px 0 10px}
+.pv-section-h:first-child{margin-top:0}
+.pv-kv-row{display:flex;flex-wrap:wrap;gap:14px 26px;margin-bottom:6px}
+.pv-kv{min-width:110px}
+.pv-kv .l{font-family:'DM Mono',monospace;font-size:0.54rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted)}
+.pv-kv .v{font-size:0.86rem;margin-top:2px}
+.pv-desc-h{font-family:'DM Mono',monospace;font-size:0.54rem;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+.pv-desc{font-size:0.82rem;line-height:1.55;margin-top:4px}
+.pv-table{width:100%;border-collapse:collapse;font-size:0.76rem;margin-top:4px}
+.pv-table th{background:var(--warm);color:var(--muted);text-align:left;padding:5px 7px;font-family:'DM Mono',monospace;font-size:0.54rem;letter-spacing:0.04em;text-transform:uppercase;font-weight:600}
+.pv-table td{border-bottom:1px solid var(--border);padding:5px 7px}
+.pv-table tr:nth-child(even) td{background:#faf8f4}
+.pv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 12px}
+.pv-stat{background:var(--warm);text-align:left;padding:8px 9px}
+.pv-stat .n{font-weight:700;font-size:1.05rem;color:var(--navy)}
+.pv-stat .l{font-family:'DM Mono',monospace;font-size:0.5rem;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.pv-subhead{font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.68rem;letter-spacing:0.03em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;margin:14px 0 6px}
+.pv-subhead:first-child{margin-top:0}
+.pv-checklist-cat{font-family:'DM Sans',sans-serif;font-weight:700;font-size:0.7rem;color:var(--navy);margin:12px 0 4px}
+.pv-checklist-cat:first-child{margin-top:0}
+.pv-check-item{font-size:0.78rem;line-height:1.6;padding-left:2px}
+.pv-check-item.done{color:#b0a692;text-decoration:line-through}
+.pv-empty{font-family:'DM Sans',sans-serif;font-style:italic;font-size:0.74rem;color:#bbb}
+
+@media(max-width:1150px){
+  .app-layout{flex-direction:column}
+  .form-col{max-width:100%}
+  .preview-col{position:static;max-height:none;width:100%}
+}
+
 @media(max-width:700px){
   .topbar{padding:0 16px}
   .nav-strip{padding:0 16px}
@@ -534,6 +584,8 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 </nav>
 
 <main class="main">
+<div class="app-layout">
+<div class="form-col">
 
 <!-- ═══════════════════ PAGE: OVERVIEW ═══════════════════ -->
 <div class="page active" id="page-overview">
@@ -936,6 +988,14 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
   </div>
 </div>
 
+</div>
+<div class="preview-col">
+  <div class="preview-header"><span class="dot"></span><span class="lbl">Live Preview</span></div>
+  <div class="preview-scroll">
+    <div class="preview-paper" id="previewPaper"></div>
+  </div>
+</div>
+</div>
 </main>
 
 <footer class="footer">
@@ -1346,6 +1406,8 @@ function autoSave() {
 }
 document.addEventListener('input', autoSave);
 document.addEventListener('change', autoSave);
+document.addEventListener('input', renderPreview);
+document.addEventListener('change', renderPreview);
 
 function saveDraft() {
   try {
@@ -1371,6 +1433,155 @@ function collectData() {
     taskState: JSON.parse(JSON.stringify(taskState)),
     customTasks: JSON.parse(JSON.stringify(customTasks)),
   };
+}
+
+/* ═══════════════════════════════════════════
+   LIVE PREVIEW
+═══════════════════════════════════════════ */
+function esc(s) { return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderPreview() {
+  const el = document.getElementById('previewPaper');
+  if (!el) return;
+
+  const kv = (label,val) => `<div class="pv-kv"><div class="l">${esc(label)}</div><div class="v">${esc(val)||'—'}</div></div>`;
+  const rows = (bodyId) => Array.from(document.querySelectorAll(`#${bodyId} tr`));
+  const cells = (row, sel) => Array.from(row.querySelectorAll(sel));
+
+  let html = `<div class="pv-cover">
+    <div class="pv-title">Event Planning Proposal</div>
+    <div class="pv-sub">${esc(v('ev-name')) || 'MUT Tech Community Event'}</div>
+    <div class="pv-gen">MUT Tech Community &middot; Dream &middot; Create &middot; Code</div>
+  </div>
+  <div class="pv-body">`;
+
+  /* ── 01 OVERVIEW ── */
+  html += `<div class="pv-section-h">01 — Event Overview</div>`;
+  html += `<div class="pv-kv-row">${kv('Event Name',v('ev-name'))}${kv('Event Type',v('ev-type'))}${kv('Theme / Tagline',v('ev-theme'))}${kv('Target Audience',v('ev-audience'))}</div>`;
+  const dateStr = v('ev-date') ? new Date(v('ev-date')+'T00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+  html += `<div class="pv-kv-row">${kv('Date',dateStr)}${kv('Start Time',v('ev-start'))}${kv('End Time',v('ev-end'))}${kv('Dress Code',v('ev-dress'))}</div>`;
+  html += `<div class="pv-kv-row">${kv('Venue',v('ev-venue'))}${kv('Location',v('ev-location'))}${kv('Expected Attendance',v('ev-attendance'))}${kv('Coordinator',v('ev-coordinator'))}</div>`;
+  if (v('ev-desc')) html += `<div class="pv-desc-h">Description / Objectives</div><div class="pv-desc">${esc(v('ev-desc'))}</div>`;
+
+  /* ── 02 PROGRAMME ── */
+  html += `<div class="pv-section-h">02 — Event Programme</div>`;
+  const progRows = rows('prog-body');
+  if (progRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Time</th><th>Duration</th><th>Session</th><th>Speaker</th><th>Venue/Room</th></tr></thead><tbody>`;
+    progRows.forEach(row => {
+      const i = cells(row,'input,textarea');
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(i[2]&&i[2].value)}</td><td>${esc(i[4]&&i[4].value)}</td><td>${esc(i[5]&&i[5].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No programme sessions added.</div>`; }
+
+  /* ── 03 BUDGET ── */
+  html += `<div class="pv-section-h">03 — Event Budget (KSh)</div>`;
+  const bsIncome = document.getElementById('bs-income'), bsExp = document.getElementById('bs-expenses'),
+        bsBal = document.getElementById('bs-balance'), bsPP = document.getElementById('bs-perperson');
+  html += `<div class="pv-stats">
+    <div class="pv-stat"><div class="n">${esc(bsIncome?bsIncome.textContent:'—')}</div><div class="l">Total Income</div></div>
+    <div class="pv-stat"><div class="n">${esc(bsExp?bsExp.textContent:'—')}</div><div class="l">Total Expenses</div></div>
+    <div class="pv-stat"><div class="n">${esc(bsBal?bsBal.textContent:'—')}</div><div class="l">Net Balance</div></div>
+    <div class="pv-stat"><div class="n">${esc(bsPP?bsPP.textContent:'—')}</div><div class="l">Cost / Person</div></div>
+  </div>`;
+  html += `<div class="pv-subhead">Income Sources</div>`;
+  const incRows = rows('income-body');
+  if (incRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Source</th><th>Description</th><th>Status</th><th>Amount</th></tr></thead><tbody>`;
+    incRows.forEach(row => {
+      const i = cells(row,'input,select');
+      const amt = parseFloat(i[2]&&i[2].value||0);
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(row.querySelector('select')&&row.querySelector('select').value)}</td><td>${fmt(amt)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No income sources added.</div>`; }
+  html += `<div class="pv-subhead">Expenses</div>`;
+  const expRows = rows('expense-body');
+  if (expRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Category</th><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>`;
+    expRows.forEach(row => {
+      const sel = row.querySelector('select');
+      const i = cells(row,'input');
+      const qty = parseFloat(i[0]&&i[0].value)||0, unit = parseFloat(i[1]&&i[1].value)||0;
+      html += `<tr><td>${esc(sel&&sel.value)}</td><td>${esc(i[2]&&i[2].value)}</td><td>${qty}</td><td>${fmt(unit)}</td><td>${fmt(qty*unit)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No expenses added.</div>`; }
+
+  /* ── 04 TEAM ── */
+  html += `<div class="pv-section-h">04 — Organising Team</div>`;
+  const teamRows = rows('team-body');
+  if (teamRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Email</th></tr></thead><tbody>`;
+    teamRows.forEach(row => {
+      const i = cells(row,'input');
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(i[2]&&i[2].value)}</td><td>${esc(i[3]&&i[3].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No team members added.</div>`; }
+  html += `<div class="pv-subhead">Volunteers</div>`;
+  const volRows = rows('vol-body').filter(row => cells(row,'input').some(i=>i.value.trim()));
+  if (volRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Name</th><th>Assigned Task</th><th>Phone</th><th>Shift</th></tr></thead><tbody>`;
+    volRows.forEach(row => {
+      const i = cells(row,'input');
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(i[2]&&i[2].value)}</td><td>${esc(i[3]&&i[3].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No volunteers added.</div>`; }
+
+  /* ── 05 SPONSORS ── */
+  html += `<div class="pv-section-h">05 — Sponsors &amp; Partners</div>`;
+  const spRows = rows('sponsor-body').filter(row => cells(row,'input').some(i=>i.value.trim()));
+  if (spRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Organisation</th><th>Tier</th><th>Contact</th><th>Status</th><th>Amount</th></tr></thead><tbody>`;
+    spRows.forEach(row => {
+      const i = cells(row,'input'), sels = cells(row,'select');
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(sels[0]&&sels[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(sels[1]&&sels[1].value)}</td><td>${fmt(i[2]&&i[2].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No sponsors added.</div>`; }
+
+  /* ── 06 LOGISTICS ── */
+  html += `<div class="pv-section-h">06 — Logistics</div>`;
+  html += `<div class="pv-kv-row">${kv('Venue Capacity',v('lg-capacity'))}${kv('Booking Status',v('lg-booking'))}${kv('Venue Contact',v('lg-vcontact'))}${kv('Setup Date/Time',v('lg-setup'))}${kv('Catering Provider',v('cat-provider'))}${kv('Meal Plan',v('cat-plan'))}${kv('Social Media',v('mkt-social'))}${kv('Hashtag',v('mkt-hashtag'))}</div>`;
+  html += `<div class="pv-subhead">Equipment List</div>`;
+  const eqRows = rows('equip-body');
+  if (eqRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Item</th><th>Qty</th><th>Source</th><th>Status</th></tr></thead><tbody>`;
+    eqRows.forEach(row => {
+      const i = cells(row,'input'), sels = cells(row,'select');
+      html += `<tr><td>${esc(i[0]&&i[0].value)}</td><td>${esc(i[1]&&i[1].value)}</td><td>${esc(sels[0]&&sels[0].value)}</td><td>${esc(sels[1]&&sels[1].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No equipment listed.</div>`; }
+
+  /* ── 07 RISKS ── */
+  html += `<div class="pv-section-h">07 — Risk Register</div>`;
+  const riskRows = Array.from(document.querySelectorAll('#risk-list .risk-row'));
+  if (riskRows.length) {
+    html += `<table class="pv-table"><thead><tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr></thead><tbody>`;
+    riskRows.forEach(row => {
+      const tas = cells(row,'textarea'), sels = cells(row,'select');
+      html += `<tr><td>${esc(tas[0]&&tas[0].value)}</td><td>${esc(sels[0]&&sels[0].value)}</td><td>${esc(sels[1]&&sels[1].value)}</td><td>${esc(tas[1]&&tas[1].value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No risks recorded.</div>`; }
+
+  /* ── 08 CHECKLIST ── */
+  html += `<div class="pv-section-h">08 — Planning Checklist</div>`;
+  Object.entries(DEFAULT_TASKS).forEach(([cat,tasks]) => {
+    html += `<div class="pv-checklist-cat">${esc(cat)}</div>`;
+    tasks.forEach((task,i) => {
+      const key = cat+'__'+i;
+      const done = !!taskState[key];
+      html += `<div class="pv-check-item${done?' done':''}">${done?'☑':'☐'} ${esc(task)}</div>`;
+    });
+  });
+
+  html += `</div>`;
+  el.innerHTML = html;
 }
 
 function clearAll() {
@@ -1605,7 +1816,7 @@ function exportPDF() {
       const key=cat+'__'+i;totalT++;
       const done=taskState[key]||false;if(done)doneT++;
       check(6);
-      doc.setFont('times','normal');doc.setFontSize(9.5);doc.setTextColor(done?[180,170,150]:BLK);
+      doc.setFont('times','normal');doc.setFontSize(9.5);doc.setTextColor(...(done?[180,170,150]:BLK));
       doc.text((done?'[x] ':'[ ] ')+task,ml+2,y);
       if(done){doc.setDrawColor(180,170,150);doc.setLineWidth(0.3);doc.line(ml+8,y-0.5,ml+8+doc.getTextWidth(task),y-0.5);}
       y+=6;
@@ -1688,6 +1899,16 @@ function init() {
   document.getElementById('ev-date').addEventListener('input',updateStats);
   document.getElementById('ev-attendance').addEventListener('input',updateStats);
   updateStats();
+
+  // Keep the live preview in sync with rows added/removed via buttons (typing is
+  // already covered by the input/change listeners above)
+  let previewMutationTimer;
+  new MutationObserver(()=>{
+    clearTimeout(previewMutationTimer);
+    previewMutationTimer = setTimeout(renderPreview, 40);
+  }).observe(document.querySelector('.form-col'), {childList:true, subtree:true});
+
+  renderPreview();
 }
 
 function loadDraft() {
@@ -1707,6 +1928,7 @@ function loadDraft() {
     }
     renderChecklist();
     updateStats();
+    renderPreview();
   } catch(e){}
 }
 

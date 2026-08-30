@@ -74,11 +74,14 @@
   /* ── MAIN LAYOUT ── */
   main {
     flex: 1;
-    max-width: 880px;
+    max-width: 1440px;
     width: 100%;
     margin: 0 auto;
     padding: 48px 32px 80px;
   }
+  .app-layout { display: flex; gap: 36px; align-items: flex-start; }
+  .form-col { flex: 1 1 620px; min-width: 0; max-width: 880px; }
+  .preview-col { flex: 1 1 480px; min-width: 0; position: sticky; top: 84px; align-self: flex-start; max-height: calc(100vh - 104px); display: flex; flex-direction: column; }
 
   /* ── SECTION WRAPPER ── */
   .section {
@@ -275,6 +278,51 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ── LIVE PREVIEW ── */
+  .preview-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .preview-header .dot { width: 7px; height: 7px; border-radius: 50%; background: #2e9e5b; box-shadow: 0 0 0 3px rgba(46,158,91,0.18); }
+  .preview-header .lbl { font-family: 'DM Mono', monospace; font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); font-weight: 600; }
+  .preview-scroll { overflow-y: auto; padding-bottom: 20px; }
+  .preview-paper {
+    background: var(--white); border: 1px solid var(--light); border-radius: 2px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.14);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: var(--black);
+  }
+  .pv-cover { background: var(--black); color: var(--white); padding: 26px 24px 20px; }
+  .pv-cover .pv-title { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 600; font-size: 1.7rem; }
+  .pv-cover .pv-sub { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: #aaa; margin-top: 7px; letter-spacing: 0.03em; }
+  .pv-cover .pv-tagline { font-family: 'DM Mono', monospace; font-style: italic; font-size: 0.6rem; color: #8a8a8a; margin-top: 8px; }
+  .pv-cover .pv-meta-row { display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 0.6rem; color: #aaa; margin-top: 14px; letter-spacing: 0.04em; }
+  .pv-body { padding: 26px 24px 30px; }
+  .pv-h { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid); border-bottom: 1px solid var(--light); padding-bottom: 5px; margin: 20px 0 10px; }
+  .pv-h:first-child { margin-top: 0; }
+  .pv-kv-row { display: flex; flex-wrap: wrap; gap: 22px 28px; }
+  .pv-kv { min-width: 100px; }
+  .pv-kv .l { font-family: 'DM Mono', monospace; font-size: 0.56rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid); }
+  .pv-kv .v { font-size: 0.92rem; margin-top: 2px; }
+  .pv-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .pv-table th { font-family: 'DM Mono', monospace; font-size: 0.55rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--mid); text-align: left; padding: 0 8px 6px 0; border-bottom: 1px solid var(--light); font-weight: 600; }
+  .pv-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .pv-table .status { font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--mid); }
+  .pv-list { list-style: none; }
+  .pv-list li { font-size: 0.86rem; line-height: 1.5; margin-bottom: 7px; padding-left: 18px; position: relative; }
+  .pv-list.pv-agenda li::before { content: counter(pv-i) "."; counter-increment: pv-i; position: absolute; left: 0; font-weight: 600; }
+  .pv-list.pv-agenda { counter-reset: pv-i; }
+  .pv-list.pv-decisions li::before { content: '◆'; position: absolute; left: 0; font-size: 0.7em; top: 0.2em; }
+  .pv-empty { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: #bbb; font-style: normal; }
+  .pv-signoff { display: flex; gap: 36px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--black); }
+  .pv-sig { flex: 1; }
+  .pv-sig .l { font-family: 'DM Mono', monospace; font-size: 0.56rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid); }
+  .pv-sig .v { font-size: 0.9rem; margin-top: 2px; }
+  .pv-sig .line { border-top: 1px solid var(--light); margin-top: 20px; padding-top: 4px; font-family: 'DM Mono', monospace; font-size: 0.58rem; color: var(--mid); }
+
+  @media (max-width: 1100px) {
+    .app-layout { flex-direction: column; }
+    .form-col { max-width: 100%; }
+    .preview-col { position: static; max-height: none; width: 100%; }
+  }
+
   /* ── PRINT / PDF HIDDEN ── */
   @media print {
     header, footer, button, .add-row, .remove-btn { display: none !important; }
@@ -301,6 +349,8 @@
 </header>
 
 <main>
+<div class="app-layout">
+<div class="form-col">
 
   <!-- MEETING HEADER -->
   <div class="section">
@@ -465,6 +515,14 @@
     </div>
   </div>
 
+</div>
+<div class="preview-col">
+  <div class="preview-header"><span class="dot"></span><span class="lbl">Live Preview</span></div>
+  <div class="preview-scroll">
+    <div class="preview-paper" id="previewPaper"></div>
+  </div>
+</div>
+</div>
 </main>
 
 <footer>
@@ -520,6 +578,7 @@ function init() {
   const chairEl = document.getElementById('chairperson');
   if (!chairEl.value) chairEl.value = BOARD_MEMBERS[0].name;
   autoSave();
+  renderPreview();
 }
 
 /* ── ATTENDEES ── */
@@ -545,6 +604,7 @@ function addAttendee(prefill = null) {
     </td>
     <td><button class="remove-btn" onclick="removeRow('att-${attendeeCount}')">×</button></td>`;
   tbody.appendChild(tr);
+  renderPreview();
 }
 
 function addApology() {
@@ -558,11 +618,13 @@ function addApology() {
     <td><input type="text" value="MUT Tech Community" placeholder="Organisation" /></td>
     <td><button class="remove-btn" onclick="removeRow('apo-${apologyCount}')">×</button></td>`;
   tbody.appendChild(tr);
+  renderPreview();
 }
 
 function removeRow(id) {
   const el = document.getElementById(id);
   if (el) el.remove();
+  renderPreview();
 }
 
 /* ── AGENDA ── */
@@ -576,6 +638,7 @@ function addAgendaItem() {
     <textarea placeholder="Agenda item title and discussion summary…"></textarea>
     <button class="remove-btn" onclick="removeRow('ag-${agendaCount}')">×</button>`;
   list.appendChild(li);
+  renderPreview();
 }
 
 /* ── DECISIONS ── */
@@ -589,6 +652,7 @@ function addDecision() {
     <textarea placeholder="Decision or resolution reached…" style="flex:1;min-height:48px"></textarea>
     <button class="remove-btn" onclick="removeRow('dec-${decisionCount}')">×</button>`;
   list.appendChild(li);
+  renderPreview();
 }
 
 /* ── ACTIONS ── */
@@ -606,6 +670,7 @@ function addAction() {
     </div>
     <button class="remove-btn" onclick="removeRow('act-${actionCount}')">×</button>`;
   list.appendChild(li);
+  renderPreview();
 }
 
 /* ── DRAFT SAVE / LOAD ── */
@@ -677,7 +742,89 @@ function autoSave() {
   document.addEventListener('input', () => {
     clearTimeout(autoTimer);
     autoTimer = setTimeout(saveDraft, 1500);
+    renderPreview();
   });
+}
+
+/* ── LIVE PREVIEW ── */
+function esc(v) { return (v == null ? '' : String(v)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderPreview() {
+  const el = document.getElementById('previewPaper');
+  if (!el) return;
+  const d = collectData();
+
+  const fmtDate = s => { if (!s) return '—'; const dt = new Date(s + 'T00:00:00'); if (isNaN(dt)) return esc(s); return dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
+  const fmtTime = s => { if (!s) return '—'; const [h, m] = s.split(':'); if (h === undefined) return esc(s); const ap = +h >= 12 ? 'PM' : 'AM'; return `${+h % 12 || 12}:${m} ${ap}`; };
+
+  let html = `<div class="pv-cover">
+    <div class="pv-title">Meeting Minutes</div>
+    <div class="pv-sub">${esc(d.org || 'MUT Tech Community')} &middot; ${esc(d.meetingType || 'Meeting')}</div>
+    <div class="pv-tagline">Dream &middot; Create &middot; Code</div>
+    <div class="pv-meta-row"><span>REF: ${esc(d.refNo || 'N/A')}</span><span>${fmtDate(d.date)}</span></div>
+  </div>
+  <div class="pv-body">
+    <div class="pv-h">Meeting Details</div>
+    <div class="pv-kv-row">
+      <div class="pv-kv"><div class="l">Start Time</div><div class="v">${fmtTime(d.start)}</div></div>
+      <div class="pv-kv"><div class="l">End Time</div><div class="v">${fmtTime(d.end)}</div></div>
+      <div class="pv-kv"><div class="l">Venue</div><div class="v">${esc(d.venue) || '—'}</div></div>
+      <div class="pv-kv"><div class="l">Chairperson</div><div class="v">${esc(d.chair) || '—'}</div></div>
+      <div class="pv-kv"><div class="l">Secretary</div><div class="v">${esc(d.secretary) || '—'}</div></div>
+      <div class="pv-kv"><div class="l">Quorum</div><div class="v">${esc(d.quorum) || '—'}</div></div>
+    </div>`;
+
+  const atts = d.attendees.filter(r => r[0]);
+  html += `<div class="pv-h">Attendees Present (${atts.length})</div>`;
+  if (atts.length) {
+    html += `<table class="pv-table"><thead><tr><th>Name</th><th>Title / Role</th><th>Org</th><th>Status</th></tr></thead><tbody>`;
+    atts.slice(0, 10).forEach(r => {
+      html += `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td class="status">${esc(r[3])}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    if (atts.length > 10) html += `<div class="pv-empty">+ ${atts.length - 10} more…</div>`;
+  } else { html += `<div class="pv-empty">No attendees recorded.</div>`; }
+
+  const apos = d.apologies.filter(r => r[0]);
+  if (apos.length) {
+    html += `<div class="pv-h">Apologies / Absent</div><ul class="pv-list">`;
+    apos.forEach(r => { html += `<li>${esc(r[0])}${r[1] ? ' — ' + esc(r[1]) : ''}</li>`; });
+    html += `</ul>`;
+  }
+
+  const agendas = d.agenda.filter(a => a.trim());
+  html += `<div class="pv-h">Agenda Items &amp; Discussion</div>`;
+  html += agendas.length ? `<ul class="pv-list pv-agenda">${agendas.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : `<div class="pv-empty">No agenda items recorded.</div>`;
+
+  const decisions = d.decisions.filter(x => x.trim());
+  html += `<div class="pv-h">Decisions Made</div>`;
+  html += decisions.length ? `<ul class="pv-list pv-decisions">${decisions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<div class="pv-empty">No decisions recorded.</div>`;
+
+  const actions = d.actions.filter(a => a.task.trim());
+  html += `<div class="pv-h">Action Items</div>`;
+  if (actions.length) {
+    html += `<table class="pv-table"><thead><tr><th>Action</th><th>Responsible</th><th>Due</th></tr></thead><tbody>`;
+    actions.forEach((a, i) => {
+      html += `<tr><td>${i + 1}. ${esc(a.task)}</td><td>${esc(a.person) || '—'}</td><td class="status">${a.due ? fmtDate(a.due) : '—'}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else { html += `<div class="pv-empty">No action items recorded.</div>`; }
+
+  if (d.nextDate || d.nextTime || d.nextVenue) {
+    const nextInfo = [d.nextDate ? `Date: ${fmtDate(d.nextDate)}` : null, d.nextTime ? `Time: ${fmtTime(d.nextTime)}` : null, d.nextVenue ? `Venue: ${esc(d.nextVenue)}` : null].filter(Boolean).join(' &middot; ');
+    html += `<div class="pv-h">Next Meeting</div><div style="font-size:0.86rem">${nextInfo}</div>`;
+  }
+  if (d.notes && d.notes.trim()) {
+    html += `<div class="pv-h">Additional Notes</div><div style="font-size:0.86rem;line-height:1.5">${esc(d.notes)}</div>`;
+  }
+
+  html += `<div class="pv-signoff">
+    <div class="pv-sig"><div class="l">Prepared By</div><div class="v">${esc(d.preparedBy) || '—'}</div><div class="line">Signature — Secretary</div></div>
+    <div class="pv-sig"><div class="l">Date</div><div class="v">${d.preparedDate ? fmtDate(d.preparedDate) : '—'}</div><div class="line">Signature — Chairperson</div></div>
+  </div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
 }
 
 /* ── TOAST ── */
