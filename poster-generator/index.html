@@ -390,6 +390,13 @@ textarea{resize:vertical; min-height:80px; line-height:1.5}
       <input type="file" id="logoInput" accept="image/*" style="display:none">
     </div>
 
+    <div class="section-divider">Partner &amp; sponsor logos <span class="opt" style="text-transform:none">(optional — up to 4, shown as a small strip near the registration details, never competing with the event title)</span></div>
+    <div class="logo-row">
+      <button class="btn-secondary" onclick="document.getElementById('partnerLogoInput').click()">Upload partner logos</button>
+      <input type="file" id="partnerLogoInput" accept="image/*" multiple style="display:none">
+    </div>
+    <div class="photo-grid" id="partnerLogoGrid" style="margin-top:14px"></div>
+
     <div class="wizard-actions">
       <button class="btn-ghost" onclick="Wizard.prev()">Back</button>
       <button class="btn-primary" onclick="Wizard.next()">Continue<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -580,7 +587,7 @@ function newPosterDocument(){
     event:{ name:'', eventType:'meetup', tone:null, date:'', time:'', venue:'', description:'',
              speaker:'', speakerTitle:'', organizer:'', registrationUrl:'', cta:'', social:'' },
     format:null,
-    assets:{ photos:[], logoOverride:null },
+    assets:{ photos:[], logoOverride:null, partnerLogos:[] },
     visualDirection:null, palette:null, copy:null, layout:null, qa:null,
     exportSettings:{ jpegQuality:0.92 }
   };
@@ -662,6 +669,29 @@ const ImagePreflight = {
   }
 };
 
+const PartnerLogoLoader = {
+  analyze(file){
+    return new Promise((resolve,reject)=>{
+      if(!file.type.startsWith('image/')){ reject(new Error('Not an image file')); return; }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const dataUrl = reader.result;
+        const img = new Image();
+        img.onload = ()=>{
+          resolve({
+            id:'pl_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+            dataUrl, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, name:file.name
+          });
+        };
+        img.onerror = ()=>reject(new Error('Could not read image'));
+        img.src = dataUrl;
+      };
+      reader.onerror = ()=>reject(new Error('Could not read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+};
+
 /* ═══════════════ 5. COPY ENGINE ═══════════════ */
 const CopyEngine = {
   stripFiller(text){
@@ -674,17 +704,19 @@ const CopyEngine = {
   tightenToWords(text, maxWords){
     const clean = this.stripFiller(text);
     if(!clean) return '';
+    const allWords = clean.split(/\s+/);
+    if(allWords.length<=maxWords) return clean;
     const sentences = clean.match(/[^.!?]+[.!?]*/g) || [clean];
     let out = '', words = 0;
     for(const s of sentences){
-      const w = s.trim().split(/\s+/).length;
-      if(words>0 && words+w>maxWords) break;
-      out += (out?' ':'')+s.trim();
+      const sTrim = s.trim();
+      const w = sTrim.split(/\s+/).length;
+      if(words+w>maxWords) break;
+      out += (out?' ':'')+sTrim;
       words += w;
-      if(words>=maxWords) break;
     }
     if(!out){
-      out = clean.split(/\s+/).slice(0,maxWords).join(' ')+'…';
+      out = allWords.slice(0,maxWords).join(' ')+'…';
     }
     return out;
   },
@@ -877,6 +909,15 @@ function drawLogo(ctx, doc, p){
   const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
   ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
 }
+function drawPartnerLogo(ctx, doc, p){
+  const logo = (doc.assets.partnerLogos||[])[p.logoIndex];
+  if(!logo || !logo._img) return;
+  const img = logo._img;
+  const {x,y,w,h} = p.box;
+  const scale = Math.min(w/img.naturalWidth, h/img.naturalHeight);
+  const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
+  ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+}
 function drawHierarchyText(ctx, doc, p){
   const pal = doc.palette;
   const fontFamily = p.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
@@ -910,31 +951,58 @@ function paintPoster(ctx, doc){
     if(p.type==='shape') drawShape(ctx,doc,p);
     else if(p.type==='image') drawImageInFrame(ctx,doc,p);
     else if(p.type==='logo') drawLogo(ctx,doc,p);
+    else if(p.type==='partnerLogo') drawPartnerLogo(ctx,doc,p);
     else if(p.type==='text') drawHierarchyText(ctx,doc,p);
   });
 }
 
 /* ═══════════════ 8. COMPOSITION STRATEGIES ═══════════════ */
 let _infoStackScratchCtx = null;
+function partnerLogoRow(placements, doc, x, y, w, shortSide, colorRole){
+  const logos = doc.assets.partnerLogos||[];
+  if(!logos.length) return 0;
+  const captionH = shortSide*0.022, rowGap = shortSide*0.012, logoH = shortSide*0.046, logoGap = shortSide*0.02;
+  placements.push({type:'text', role:'partnerCaption', text:'In collaboration with', box:{x,y,w,h:captionH}, align:'left',
+    font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.0105,shortSide*0.013], uppercase:true, letterSpacing:1.1, colorRole});
+  let lx = x;
+  const logosY = y+captionH+rowGap;
+  logos.forEach((logo,li)=>{
+    const ratio = (logo.naturalWidth && logo.naturalHeight) ? logo.naturalWidth/logo.naturalHeight : 1;
+    const lw = logoH*ratio;
+    placements.push({type:'partnerLogo', logoIndex:li, box:{x:lx,y:logosY,w:lw,h:logoH}});
+    lx += lw+logoGap;
+  });
+  return captionH+rowGap+logoH;
+}
+
 function infoStack(placements, doc, box, shortSide, colorRole, opts){
   opts = opts||{};
   const copy = doc.copy;
   const rows = [
-    {role:'title', text:copy.title, capWeight:0.52*(opts.titleBoost||1), font:'display', fontWeight:900, maxLines:3,
+    {kind:'text', role:'title', text:copy.title, capWeight:0.52*(opts.titleBoost||1), font:'display', fontWeight:900, maxLines:3,
      sizeRange:[shortSide*0.032, shortSide*0.10*(opts.titleBoost||1)], lineHeightMult:1.02},
-    {role:'dateContext', text:copy.dateContext, capWeight:0.16, font:'support', fontWeight:600, maxLines:1,
+    {kind:'text', role:'dateContext', text:copy.dateContext, capWeight:0.16, font:'support', fontWeight:600, maxLines:1,
      sizeRange:[shortSide*0.016, shortSide*0.028], uppercase:true, letterSpacing:1.2},
-    {role:'supporting', text:copy.supporting, capWeight:0.28, font:'support', fontWeight:400, maxLines:3,
+    {kind:'text', role:'supporting', text:copy.supporting, capWeight:0.28, font:'support', fontWeight:400, maxLines:3,
      sizeRange:[shortSide*0.014, shortSide*0.021], lineHeightMult:1.3},
-    {role:'registration', text:copy.registration, capWeight:0.16, font:'support', fontWeight:500, maxLines:2,
+    {kind:'text', role:'registration', text:copy.registration, capWeight:0.16, font:'support', fontWeight:500, maxLines:2,
      sizeRange:[shortSide*0.012, shortSide*0.017], lineHeightMult:1.3}
   ].filter(r=>r.text && r.text.trim());
+
+  const partnerLogos = doc.assets.partnerLogos||[];
+  if(partnerLogos.length){
+    rows.push({kind:'logos', role:'partnerLogos', captionH:shortSide*0.022, rowGap:shortSide*0.012, logoH:shortSide*0.046});
+  }
 
   if(!_infoStackScratchCtx) _infoStackScratchCtx = document.createElement('canvas').getContext('2d');
   const gap = box.h*0.045;
   const barGap = shortSide*0.022;
 
   const measured = rows.map(r=>{
+    if(r.kind==='logos'){
+      const usedH = r.captionH+r.rowGap+r.logoH;
+      return { r, capH:usedH, usedH };
+    }
     const fontFamily = r.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
     const capH = box.h*r.capWeight;
     const fitOpts = {minPx:r.sizeRange[0], maxPx:r.sizeRange[1], fontWeight:r.fontWeight, fontFamily,
@@ -953,6 +1021,11 @@ function infoStack(placements, doc, box, shortSide, colorRole, opts){
   let y = box.y + Math.max(0, (box.h-totalUsed)/2);
   measured.forEach((m,i)=>{
     const r = m.r;
+    if(r.kind==='logos'){
+      partnerLogoRow(placements, doc, box.x, y, box.w, shortSide, colorRole);
+      y += m.usedH+gap;
+      return;
+    }
     placements.push({type:'text', role:r.role, text:r.text, box:{x:box.x,y,w:box.w,h:m.capH}, align:'left', verticalAlign:'top',
       font:r.font, fontWeight:r.fontWeight, maxLines:r.maxLines, sizeRange:r.sizeRange, lineHeightMult:r.lineHeightMult,
       uppercase:r.uppercase, letterSpacing:r.letterSpacing, colorRole});
@@ -990,7 +1063,10 @@ COMPOSITIONS.minimal = {
     const supOpts = {minPx:shortSide*0.017,maxPx:shortSide*0.024,fontWeight:400,fontFamily:doc.brand.fonts.support,maxLines:4,lineHeightMult:1.3};
     const supFit = fitTextToBox(_infoStackScratchCtx, doc.copy.supporting, {w:safe.w,h:supH}, supOpts);
 
-    const regZoneH = shortSide*0.14;
+    const partnerLogos = doc.assets.partnerLogos||[];
+    const regTextH = shortSide*0.14;
+    const partnerStripH = partnerLogos.length ? shortSide*(0.022+0.012+0.046+0.014) : 0;
+    const regZoneH = regTextH + partnerStripH;
     const regY = safe.y+safe.h-regZoneH;
     const headerUsedH = titleFit.lines.length*titleFit.lineHeight + shortSide*0.025 + shortSide*0.045
       + dcH + shortSide*0.025 + supFit.lines.length*supFit.lineHeight;
@@ -1017,17 +1093,21 @@ COMPOSITIONS.minimal = {
       placements.push({type:'image', role:'inset', photoIndex:0, box:{x:safe.x,y:y+shortSide*0.03,w:safe.w,h:photoH}, fit:'contain', frame:{radius:shortSide*0.006}});
     }
     placements.push({type:'shape', role:'divider', box:{x:safe.x,y:regY-shortSide*0.02,w:safe.w,h:shortSide*0.0025}, fill:'border'});
-    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:safe.x,y:regY,w:safe.w,h:regZoneH}, align:'left',
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:safe.x,y:regY,w:safe.w,h:regTextH}, align:'left',
       font:'support', fontWeight:500, maxLines:3, sizeRange:[shortSide*0.013,shortSide*0.019], lineHeightMult:1.35, colorRole:'text'});
+    if(partnerLogos.length){
+      partnerLogoRow(placements, doc, safe.x, regY+regTextH+shortSide*0.014, safe.w, shortSide, 'text');
+    }
     return placements;
   }
 };
 
 function cropSeverity(photoRatio, boxRatio){ return Math.abs(Math.log(photoRatio/boxRatio)); }
+function partnerReserve(doc){ return (doc.assets.partnerLogos && doc.assets.partnerLogos.length) ? 0.09 : 0; }
 
 COMPOSITIONS.editorial = {
   key:'editorial', displayName:'Editorial', minPhotos:1, maxPhotos:1,
-  primaryBoxRatio(doc){ const {W,H} = baseGeometry(doc); return W/(H*0.60); },
+  primaryBoxRatio(doc){ const {W,H} = baseGeometry(doc); return W/(H*(0.60-partnerReserve(doc))); },
   canRender(doc){
     if(doc.assets.photos.length<1) return {ok:false, reason:'Needs 1 photo'};
     const sev = cropSeverity(doc.assets.photos[0].aspectRatio, this.primaryBoxRatio(doc));
@@ -1037,7 +1117,7 @@ COMPOSITIONS.editorial = {
   layout(doc){
     const {W,H,margin,shortSide} = baseGeometry(doc);
     const placements = [];
-    const imgH = H*0.60;
+    const imgH = H*(0.60-partnerReserve(doc));
     placements.push({type:'shape', role:'panelZone', box:{x:0,y:imgH,w:W,h:H-imgH}, fill:'panel'});
     placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover', curveBottomAmp:shortSide*0.022});
     infoStack(placements, doc, {x:margin,y:imgH+margin*0.65,w:W-margin*2,h:H-imgH-margin*1.3}, shortSide, 'onPanel', {titleBoost:1.15});
@@ -1054,7 +1134,7 @@ COMPOSITIONS.split = {
   key:'split', displayName:'Split', minPhotos:1, maxPhotos:1,
   primaryBoxRatio(doc){
     const {W,H,orientation} = baseGeometry(doc);
-    return orientation==='portrait' ? W/(H*0.48) : (W*0.5)/H;
+    return orientation==='portrait' ? W/(H*(0.48-partnerReserve(doc))) : (W*0.5)/H;
   },
   canRender(doc){
     if(doc.assets.photos.length<1) return {ok:false, reason:'Needs 1 photo'};
@@ -1072,7 +1152,7 @@ COMPOSITIONS.split = {
       infoStack(placements, doc, {x:imgW+margin,y:margin,w:W-imgW-margin*2,h:H-margin*2}, shortSide, 'onPanel');
       if(doc._hasLogo){ const ls=shortSide*0.07; placements.push({type:'logo', box:{x:imgW+margin,y:H-margin-ls,w:ls,h:ls}}); }
     } else {
-      const imgH = H*0.48;
+      const imgH = H*(0.48-partnerReserve(doc));
       placements.push({type:'shape', role:'panelZone', box:{x:0,y:imgH,w:W,h:H-imgH}, fill:'panel'});
       placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover', curveBottomAmp:shortSide*0.022});
       infoStack(placements, doc, {x:margin,y:imgH+margin,w:W-margin*2,h:H-imgH-margin*2}, shortSide, 'onPanel');
@@ -1095,7 +1175,7 @@ COMPOSITIONS.immersive = {
     const {W,H,margin,shortSide} = baseGeometry(doc);
     const placements = [];
     placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:H}, fit:'cover'});
-    const panelH = H*0.32;
+    const panelH = H*(0.32+partnerReserve(doc));
     placements.push({type:'shape', role:'overlay', box:{x:0,y:H-panelH,w:W,h:panelH}, fill:'panel', opacity:0.88, curveTopAmp:shortSide*0.022});
     infoStack(placements, doc, {x:margin,y:H-panelH+margin*0.55,w:W-margin*2,h:panelH-margin*1.1}, shortSide, 'onDark');
     if(doc._hasLogo){
@@ -1139,7 +1219,7 @@ COMPOSITIONS.grid = {
       galleryY = safe.y+ls+shortSide*0.03;
     }
     const gap = shortSide*0.008;
-    const budgetH = safe.h*0.56;
+    const budgetH = safe.h*(0.56-partnerReserve(doc));
     const packed = packPhotosIntoRows(doc.assets.photos, safe.w, gap);
     const scaleDown = packed.totalH>budgetH ? budgetH/packed.totalH : 1;
     let ry = galleryY;
@@ -1168,7 +1248,6 @@ function tryLayout(doc, compositionKey){
   return doc.layout;
 }
 function buildLayout(doc){
-  const optionalOrder = ['cta','social','description'];
   let attempt = 0;
   while(attempt<3){
     const comp = COMPOSITIONS[doc.visualDirection.composition];
@@ -1183,8 +1262,15 @@ function buildLayout(doc){
       }
     });
     if(!anyOverflow) break;
-    if(attempt===0 && doc.event.description){ doc.event._trimmed = true; doc.copy = CopyEngine.build(doc); }
-    else if(attempt===1 && doc.visualDirection.composition!=='minimal'){ doc.visualDirection.composition='minimal'; doc.copy = CopyEngine.build(doc); }
+    if(attempt===0 && doc.visualDirection.composition!=='minimal'){
+      doc.visualDirection = Object.assign({}, doc.visualDirection, {composition:'minimal'});
+      doc.copy = CopyEngine.build(doc);
+    } else if(doc.event.description){
+      doc.event = Object.assign({}, doc.event, {description:''});
+      doc.copy = CopyEngine.build(doc);
+    } else {
+      break;
+    }
     attempt++;
   }
   return doc.layout;
@@ -1225,6 +1311,9 @@ const PreflightQA = {
 
     if(doc._hasLogo) push('branding','pass','Logo placed without distortion, clear of the title.');
     else push('branding','warn','No logo set — add one in Brand Settings for consistent identity.');
+    if(doc.assets.partnerLogos && doc.assets.partnerLogos.length){
+      push('branding','pass', `${doc.assets.partnerLogos.length} partner logo(s) shown as a secondary strip, clear of the title.`);
+    }
 
     push('export','pass', `Output: ${doc.format.label} (${doc.format.widthPx}×${doc.format.heightPx}px @ ${doc.format.ppi} PPI).`);
 
@@ -1276,6 +1365,7 @@ const ExportPipeline = {
 function generateVariant(baseDoc, variant){
   const doc = JSON.parse(JSON.stringify(baseDoc, (k,v)=> k==='_img'||k==='_logoImg' ? undefined : v));
   doc.assets.photos.forEach((p,i)=>{ p._img = baseDoc.assets.photos[i]._img; });
+  doc.assets.partnerLogos.forEach((l,i)=>{ l._img = baseDoc.assets.partnerLogos[i]._img; });
   doc._logoImg = baseDoc._logoImg;
   doc._hasLogo = baseDoc._hasLogo;
 
@@ -1361,6 +1451,12 @@ function preloadImages(doc){
     if(p._img){ res(); return; }
     const img = new Image(); img.onload=()=>{ p._img=img; res(); }; img.onerror=()=>res(); img.src=p.dataUrl;
   }));
+  doc.assets.partnerLogos.forEach(l=>{
+    jobs.push(new Promise(res=>{
+      if(l._img){ res(); return; }
+      const img = new Image(); img.onload=()=>{ l._img=img; res(); }; img.onerror=()=>res(); img.src=l.dataUrl;
+    }));
+  });
   const logoSrc = doc.assets.logoOverride || doc.brand.logoDataUrl;
   doc._hasLogo = !!logoSrc;
   if(logoSrc){
@@ -1436,7 +1532,23 @@ const Assets = {
     state.doc.assets.logoOverride = dataUrl;
     renderLogoPreview();
   },
-  clearLogo(){ state.doc.assets.logoOverride = null; renderLogoPreview(); }
+  clearLogo(){ state.doc.assets.logoOverride = null; renderLogoPreview(); },
+  async addPartnerLogos(files){
+    const remaining = 4 - state.doc.assets.partnerLogos.length;
+    if(remaining<=0){ showToast('Maximum 4 partner logos'); return; }
+    const list = Array.from(files).slice(0,remaining);
+    for(const f of list){
+      try{
+        const logo = await PartnerLogoLoader.analyze(f);
+        state.doc.assets.partnerLogos.push(logo);
+      }catch(e){ showToast('Could not read '+f.name); }
+    }
+    renderPartnerLogoGrid();
+  },
+  removePartnerLogo(id){
+    state.doc.assets.partnerLogos = state.doc.assets.partnerLogos.filter(l=>l.id!==id);
+    renderPartnerLogoGrid();
+  }
 };
 function renderPhotoGrid(){
   const grid = document.getElementById('photoGrid');
@@ -1458,6 +1570,14 @@ function renderLogoPreview(){
   const src = state.doc.assets.logoOverride || state.doc.brand.logoDataUrl;
   el.innerHTML = src ? `<img src="${src}">` : `<span style="font-size:10px;color:var(--muted)">None</span>`;
   document.getElementById('logoClearBtn').style.display = state.doc.assets.logoOverride ? 'inline-block' : 'none';
+}
+function renderPartnerLogoGrid(){
+  const grid = document.getElementById('partnerLogoGrid');
+  grid.innerHTML = state.doc.assets.partnerLogos.map(l=>`
+    <div class="photo-card">
+      <img class="photo-thumb" style="object-fit:contain;padding:10px" src="${l.dataUrl}">
+      <button class="photo-remove" onclick="Assets.removePartnerLogo('${l.id}')">Remove</button>
+    </div>`).join('');
 }
 
 /* ── FORMAT MODULE ── */
@@ -1647,6 +1767,7 @@ function init(){
     reader.readAsDataURL(f);
     e.target.value='';
   });
+  document.getElementById('partnerLogoInput').addEventListener('change', e=>{ Assets.addPartnerLogos(e.target.files); e.target.value=''; });
   document.getElementById('adminOverlay').addEventListener('click', e=>{ if(e.target.id==='adminOverlay') Admin.close(); });
 }
 window.addEventListener('DOMContentLoaded', init);
