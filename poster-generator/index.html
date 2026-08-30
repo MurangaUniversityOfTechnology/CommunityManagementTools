@@ -816,7 +816,18 @@ function drawShape(ctx, doc, p){
   ctx.save();
   ctx.globalAlpha = p.opacity!=null ? p.opacity : 1;
   ctx.fillStyle = colorMap[p.fill] || pal.panel;
-  ctx.fillRect(p.box.x, p.box.y, p.box.w, p.box.h);
+  if(p.curveTopAmp){
+    const {x,y,w,h} = p.box;
+    ctx.beginPath();
+    ctx.moveTo(x, y+h);
+    ctx.lineTo(x+w, y+h);
+    ctx.lineTo(x+w, y);
+    ctx.quadraticCurveTo(x+w/2, y+p.curveTopAmp, x, y);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.fillRect(p.box.x, p.box.y, p.box.w, p.box.h);
+  }
   ctx.restore();
 }
 function drawImageInFrame(ctx, doc, p){
@@ -825,7 +836,15 @@ function drawImageInFrame(ctx, doc, p){
   const img = photo._img;
   const {x,y,w,h} = p.box;
   ctx.save();
-  if(p.frame && p.frame.radius){
+  if(p.curveBottomAmp){
+    const h0 = y+h;
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x+w,y);
+    ctx.lineTo(x+w,h0);
+    ctx.quadraticCurveTo(x+w/2, h0+p.curveBottomAmp, x, h0);
+    ctx.closePath(); ctx.clip();
+  } else if(p.frame && p.frame.radius){
     const r = p.frame.radius;
     ctx.beginPath();
     ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r);
@@ -839,9 +858,13 @@ function drawImageInFrame(ctx, doc, p){
     const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
     ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
   } else {
-    const scale = Math.max(w/img.naturalWidth, h/img.naturalHeight);
+    const amp = p.curveBottomAmp || 0;
+    const effH = h + Math.abs(amp);
+    const scale = Math.max(w/img.naturalWidth, effH/img.naturalHeight);
     const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
-    ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+    const dx = x+(w-dw)/2;
+    const dy = amp ? (y+h+amp-dh) : (y+(h-dh)/2);
+    ctx.drawImage(img, dx, dy, dw, dh);
   }
   ctx.restore();
 }
@@ -1015,8 +1038,8 @@ COMPOSITIONS.editorial = {
     const {W,H,margin,shortSide} = baseGeometry(doc);
     const placements = [];
     const imgH = H*0.60;
-    placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover'});
     placements.push({type:'shape', role:'panelZone', box:{x:0,y:imgH,w:W,h:H-imgH}, fill:'panel'});
+    placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover', curveBottomAmp:shortSide*0.022});
     infoStack(placements, doc, {x:margin,y:imgH+margin*0.65,w:W-margin*2,h:H-imgH-margin*1.3}, shortSide, 'onPanel', {titleBoost:1.15});
     if(doc._hasLogo){
       const ls = shortSide*0.075;
@@ -1050,8 +1073,8 @@ COMPOSITIONS.split = {
       if(doc._hasLogo){ const ls=shortSide*0.07; placements.push({type:'logo', box:{x:imgW+margin,y:H-margin-ls,w:ls,h:ls}}); }
     } else {
       const imgH = H*0.48;
-      placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover'});
       placements.push({type:'shape', role:'panelZone', box:{x:0,y:imgH,w:W,h:H-imgH}, fill:'panel'});
+      placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:imgH}, fit:'cover', curveBottomAmp:shortSide*0.022});
       infoStack(placements, doc, {x:margin,y:imgH+margin,w:W-margin*2,h:H-imgH-margin*2}, shortSide, 'onPanel');
       if(doc._hasLogo){ const ls=shortSide*0.07; placements.push({type:'logo', box:{x:margin,y:imgH+margin*0.3,w:ls,h:ls}}); }
     }
@@ -1073,7 +1096,7 @@ COMPOSITIONS.immersive = {
     const placements = [];
     placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:H}, fit:'cover'});
     const panelH = H*0.32;
-    placements.push({type:'shape', role:'overlay', box:{x:0,y:H-panelH,w:W,h:panelH}, fill:'panel', opacity:0.88});
+    placements.push({type:'shape', role:'overlay', box:{x:0,y:H-panelH,w:W,h:panelH}, fill:'panel', opacity:0.88, curveTopAmp:shortSide*0.022});
     infoStack(placements, doc, {x:margin,y:H-panelH+margin*0.55,w:W-margin*2,h:panelH-margin*1.1}, shortSide, 'onDark');
     if(doc._hasLogo){
       const ls = shortSide*0.075;
