@@ -48,26 +48,26 @@ function bucketLabel(ratio){
 }
 
 const VISUAL_DIRECTION_RULES = {
-  workshop:       { compositionPriority:['editorial','grid','minimal'],            paletteVariant:'educational',  decoration:1 },
-  hackathon:      { compositionPriority:['immersive','editorial','grid'],          paletteVariant:'vibrant',      decoration:2 },
-  'ai-ml':        { compositionPriority:['immersive','editorial','minimal'],       paletteVariant:'futuristic',   decoration:1 },
-  robotics:       { compositionPriority:['editorial','immersive','grid'],          paletteVariant:'futuristic',   decoration:1 },
-  career:         { compositionPriority:['split','editorial','minimal'],           paletteVariant:'professional', decoration:0 },
-  meetup:         { compositionPriority:['split','editorial','grid'],              paletteVariant:'community',    decoration:1 },
-  'coding-class': { compositionPriority:['editorial','minimal','grid'],            paletteVariant:'educational',  decoration:0 },
-  academic:       { compositionPriority:['minimal','editorial'],                   paletteVariant:'professional', decoration:0 },
-  social:         { compositionPriority:['immersive','grid','editorial'],          paletteVariant:'community',    decoration:2 },
-  competition:    { compositionPriority:['editorial','immersive','grid'],          paletteVariant:'vibrant',      decoration:2 },
-  recruitment:    { compositionPriority:['split','editorial'],                     paletteVariant:'professional', decoration:0 },
-  announcement:   { compositionPriority:['minimal','editorial'],                   paletteVariant:'professional', decoration:0 },
-  special:        { compositionPriority:['editorial','immersive','grid','split','minimal'], paletteVariant:'community', decoration:1 }
+  workshop:       { compositionPriority:['agenda','editorial','grid','minimal'],                       paletteVariant:'educational',  decoration:1 },
+  hackathon:      { compositionPriority:['billboard','stats','immersive','editorial','grid'],           paletteVariant:'vibrant',      decoration:2 },
+  'ai-ml':        { compositionPriority:['immersive','statement','speakerLineup','editorial','minimal'], paletteVariant:'futuristic', decoration:1 },
+  robotics:       { compositionPriority:['billboard','stats','editorial','immersive','grid'],           paletteVariant:'futuristic',   decoration:1 },
+  career:         { compositionPriority:['speakerLineup','split','editorial','minimal'],               paletteVariant:'professional', decoration:0 },
+  meetup:         { compositionPriority:['split','agenda','editorial','grid'],                         paletteVariant:'community',    decoration:1 },
+  'coding-class': { compositionPriority:['agenda','editorial','minimal','grid'],                       paletteVariant:'educational',  decoration:0 },
+  academic:       { compositionPriority:['agenda','minimal','editorial'],                              paletteVariant:'professional', decoration:0 },
+  social:         { compositionPriority:['immersive','billboard','grid','editorial'],                  paletteVariant:'community',    decoration:2 },
+  competition:    { compositionPriority:['billboard','stats','editorial','immersive','grid'],           paletteVariant:'vibrant',      decoration:2 },
+  recruitment:    { compositionPriority:['speakerLineup','statement','split','editorial'],             paletteVariant:'professional', decoration:0 },
+  announcement:   { compositionPriority:['statement','minimal','editorial'],                           paletteVariant:'professional', decoration:0 },
+  special:        { compositionPriority:['editorial','immersive','billboard','stats','grid','split','minimal'], paletteVariant:'community', decoration:1 }
 };
 const DECOR_LEVELS = ['low','medium','high'];
 const TONE_MODIFIERS = {
   'more-vibrant':      { paletteVariant:'vibrant',      decorationDelta:1 },
   'more-professional': { paletteVariant:'professional', decorationDelta:-1 },
   'more-calm':          { paletteVariant:'educational',  decorationDelta:-1 },
-  'more-bold':          { boost:['immersive','grid'],    decorationDelta:1 }
+  'more-bold':          { boost:['billboard','immersive','grid'],    decorationDelta:1 }
 };
 
 const FILLER_PHRASES = [
@@ -124,7 +124,8 @@ function newPosterDocument(){
     id:'pd_'+Date.now().toString(36),
     brand:BrandStore.load(),
     event:{ name:'', eventType:'meetup', tone:null, date:'', time:'', venue:'', description:'',
-             speaker:'', speakerTitle:'', organizer:'', registrationUrl:'', cta:'', social:'' },
+             speakers:[], agenda:[], highlights:[], quote:{text:'',attribution:''},
+             organizer:'', registrationUrl:'', cta:'', social:'' },
     format:null,
     assets:{ photos:[], logoOverride:null, partnerLogos:[] },
     visualDirection:null, palette:null, copy:null, layout:null, qa:null,
@@ -278,7 +279,10 @@ const CopyEngine = {
     const e = doc.event;
     const title = e.name || 'Untitled Event';
     const dateContext = this.formatDateTime(e.date, e.time) || 'Date & time to be announced';
-    const venueSpeaker = [e.venue, e.speaker ? (e.speaker+(e.speakerTitle?', '+e.speakerTitle:'')) : ''].filter(Boolean).join(' · ');
+    const speakers = (e.speakers||[]).filter(s=>s.name && s.name.trim());
+    const primarySpeaker = speakers[0];
+    const speakerLine = primarySpeaker ? (primarySpeaker.name+(primarySpeaker.title?', '+primarySpeaker.title:'')+(speakers.length>1?` +${speakers.length-1} more`:'')) : '';
+    const venueSpeaker = [e.venue, speakerLine].filter(Boolean).join(' · ');
     const wantsBlurb = doc.visualDirection && doc.visualDirection.composition==='minimal';
     const blurb = wantsBlurb && e.description ? this.tightenToWords(e.description, 32) : '';
     const supporting = [venueSpeaker, blurb].filter(Boolean).join('\n');
@@ -302,14 +306,22 @@ function selectVisualDirection(doc){
   if(tm){
     if(tm.paletteVariant) paletteVariant = tm.paletteVariant;
     decoration = clamp(decoration+tm.decorationDelta,0,2);
-    if(tm.boost) order = [...tm.boost.filter(k=>order.includes(k)), ...order.filter(k=>!tm.boost.includes(k))];
+    if(tm.boost) order = [...tm.boost, ...order.filter(k=>!tm.boost.includes(k))];
   }
 
   const photos = doc.assets.photos;
-  if(photos.length===0) order = ['minimal'];
-  else if(photos.length>=2) order = ['grid', ...order.filter(k=>k!=='grid')];
+  const speakers = (doc.event.speakers||[]).filter(s=>s.name&&s.name.trim());
+  const agenda = (doc.event.agenda||[]).filter(a=>a.item&&a.item.trim());
+  const highlights = (doc.event.highlights||[]).filter(h=>h.value&&h.value.trim()&&h.label&&h.label.trim());
+  const hasQuote = doc.event.quote && doc.event.quote.text && doc.event.quote.text.trim();
 
+  // Data-presence boosts, weakest signal first — later boosts take priority.
   if(countWords(doc.event.description)>60) order = ['editorial','minimal',...order.filter(k=>k!=='editorial'&&k!=='minimal')];
+  if(photos.length>=2) order = ['grid', ...order.filter(k=>k!=='grid')];
+  if(hasQuote) order = ['statement', ...order.filter(k=>k!=='statement')];
+  if(highlights.length>=2) order = ['stats', ...order.filter(k=>k!=='stats')];
+  if(agenda.length>=2) order = ['agenda', ...order.filter(k=>k!=='agenda')];
+  if(speakers.length>=2) order = ['speakerLineup', ...order.filter(k=>k!=='speakerLineup')];
 
   let chosen = null, reason='';
   for(const key of order){
@@ -339,11 +351,11 @@ function baseGeometry(doc){
 function resolvePalette(brand, variant){
   const c = brand.colors;
   const table = {
-    professional: {bg:c.cream, panel:c.navy,  accent:c.gold,  text:c.text, onPanel:'#ffffff', onDark:'#ffffff', border:c.border},
-    educational:  {bg:c.cream, panel:c.navy2, accent:c.gold,  text:c.text, onPanel:'#ffffff', onDark:'#ffffff', border:c.border},
-    community:    {bg:c.warm,  panel:c.gold,  accent:c.navy,  text:c.text, onPanel:c.navy,    onDark:'#ffffff', border:c.border},
-    vibrant:      {bg:c.navy,  panel:c.gold2, accent:c.gold,  text:'#ffffff', onPanel:c.navy,  onDark:'#ffffff', border:'rgba(255,255,255,0.25)'},
-    futuristic:   {bg:c.navy3, panel:c.navy2, accent:c.gold2, text:'#ffffff', onPanel:'#ffffff', onDark:'#ffffff', border:'rgba(255,255,255,0.18)'}
+    professional: {bg:c.cream, panel:c.navy,  accent:c.gold,  text:c.text, onPanel:'#ffffff', onDark:'#ffffff', border:c.border, muted:c.muted},
+    educational:  {bg:c.cream, panel:c.navy2, accent:c.gold,  text:c.text, onPanel:'#ffffff', onDark:'#ffffff', border:c.border, muted:c.muted},
+    community:    {bg:c.warm,  panel:c.gold,  accent:c.navy,  text:c.text, onPanel:c.navy,    onDark:'#ffffff', border:c.border, muted:c.muted},
+    vibrant:      {bg:c.navy,  panel:c.gold2, accent:c.gold,  text:'#ffffff', onPanel:c.navy,  onDark:'#ffffff', border:'rgba(255,255,255,0.25)', muted:'rgba(255,255,255,0.62)'},
+    futuristic:   {bg:c.navy3, panel:c.navy2, accent:c.gold2, text:'#ffffff', onPanel:'#ffffff', onDark:'#ffffff', border:'rgba(255,255,255,0.18)', muted:'rgba(255,255,255,0.58)'}
   };
   return table[variant] || table.professional;
 }
@@ -358,13 +370,14 @@ function wrapText(ctx, text, maxWidth){
   if(line) lines.push(line);
   return lines.length ? lines : [''];
 }
+function fontString(opts, size){ return `${opts.italic?'italic ':''}${opts.fontWeight||400} ${size}px '${opts.fontFamily}'`; }
 function fitTextToBox(ctx, text, box, opts){
   const t = opts.uppercase ? String(text).toUpperCase() : String(text);
   const paragraphs = t.split('\n');
   let lo=opts.minPx, hi=opts.maxPx, best=null;
   for(let i=0;i<16;i++){
     const mid = (lo+hi)/2;
-    ctx.font = `${opts.fontWeight||400} ${mid}px '${opts.fontFamily}'`;
+    ctx.font = fontString(opts, mid);
     let lines = [];
     paragraphs.forEach(p=> lines = lines.concat(wrapText(ctx,p,box.w)));
     const lh = mid*(opts.lineHeightMult||1.15);
@@ -372,7 +385,7 @@ function fitTextToBox(ctx, text, box, opts){
     if(fits){ best = {fontSize:mid, lines, lineHeight:lh, overflow:false}; lo=mid; } else { hi=mid; }
   }
   if(!best){
-    ctx.font = `${opts.fontWeight||400} ${opts.minPx}px '${opts.fontFamily}'`;
+    ctx.font = fontString(opts, opts.minPx);
     let lines = [];
     paragraphs.forEach(p=> lines = lines.concat(wrapText(ctx,p,box.w)));
     const overflow = lines.length>opts.maxLines;
@@ -383,7 +396,7 @@ function fitTextToBox(ctx, text, box, opts){
 }
 function drawShape(ctx, doc, p){
   const pal = doc.palette;
-  const colorMap = { primary:pal.panel, accent:pal.accent, border:pal.border, panel:pal.panel };
+  const colorMap = { primary:pal.panel, accent:pal.accent, border:pal.border, panel:pal.panel, scrimDark:doc.brand.colors.navy3 };
   ctx.save();
   ctx.globalAlpha = p.opacity!=null ? p.opacity : 1;
   ctx.fillStyle = colorMap[p.fill] || pal.panel;
@@ -457,16 +470,35 @@ function drawPartnerLogo(ctx, doc, p){
   const dw = img.naturalWidth*scale, dh = img.naturalHeight*scale;
   ctx.drawImage(img, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
 }
+function initials(name){
+  const parts = (name||'').trim().split(/\s+/).filter(Boolean);
+  const s = (parts[0]?parts[0][0]:'') + (parts.length>1?parts[parts.length-1][0]:'');
+  return s.toUpperCase() || '?';
+}
+function drawAvatar(ctx, doc, p){
+  const {x,y,w,h} = p.box;
+  const r = Math.min(w,h)/2;
+  const cx = x+w/2, cy = y+h/2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.closePath();
+  ctx.fillStyle = doc.palette.accent;
+  ctx.fill();
+  ctx.fillStyle = doc.brand.colors.navy;
+  ctx.font = `700 ${Math.round(r*0.85)}px '${doc.brand.fonts.support}'`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(p.initials, cx, cy+r*0.06);
+  ctx.restore();
+}
 function drawHierarchyText(ctx, doc, p){
   const pal = doc.palette;
   const fontFamily = p.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
   const opts = {
     minPx:p.sizeRange[0], maxPx:p.sizeRange[1], fontWeight:p.fontWeight||400, fontFamily,
-    maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase
+    maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase, italic:!!p.italic
   };
   const fit = fitTextToBox(ctx, p.text, p.box, opts);
   p._fit = fit;
-  ctx.font = `${opts.fontWeight} ${fit.fontSize}px '${fontFamily}'`;
+  ctx.font = fontString(opts, fit.fontSize);
   ctx.fillStyle = pal[p.colorRole] || pal.text;
   ctx.textBaseline = 'alphabetic';
   try{ ctx.letterSpacing = (p.letterSpacing? p.letterSpacing+'px' : '0px'); }catch(e){}
@@ -491,6 +523,7 @@ function paintPoster(ctx, doc){
     else if(p.type==='image') drawImageInFrame(ctx,doc,p);
     else if(p.type==='logo') drawLogo(ctx,doc,p);
     else if(p.type==='partnerLogo') drawPartnerLogo(ctx,doc,p);
+    else if(p.type==='avatar') drawAvatar(ctx,doc,p);
     else if(p.type==='text') drawHierarchyText(ctx,doc,p);
   });
 }
@@ -779,6 +812,288 @@ COMPOSITIONS.grid = {
   }
 };
 
+COMPOSITIONS.speakerLineup = {
+  key:'speakerLineup', displayName:'Speaker Lineup', minPhotos:0, maxPhotos:0,
+  canRender(doc){
+    const n = (doc.event.speakers||[]).filter(s=>s.name&&s.name.trim()).length;
+    if(n<2) return {ok:false, reason:'needs at least 2 named speakers'};
+    return {ok:true};
+  },
+  layout(doc){
+    const {W,H,margin,safe,shortSide} = baseGeometry(doc);
+    const placements = [];
+    let y = safe.y;
+    if(doc._hasLogo){
+      const ls = shortSide*0.075;
+      placements.push({type:'logo', box:{x:safe.x,y,w:ls,h:ls}});
+      y += ls + shortSide*0.035;
+    } else { y += shortSide*0.015; }
+
+    if(!_infoStackScratchCtx) _infoStackScratchCtx = document.createElement('canvas').getContext('2d');
+    const titleH = shortSide*0.16;
+    const titleOpts = {minPx:shortSide*0.03,maxPx:shortSide*0.062,fontWeight:900,fontFamily:doc.brand.fonts.display,maxLines:2,lineHeightMult:1.05};
+    const titleFit = fitTextToBox(_infoStackScratchCtx, doc.copy.title, {w:safe.w,h:titleH}, titleOpts);
+    placements.push({type:'text', role:'title', text:doc.copy.title, box:{x:safe.x,y,w:safe.w,h:titleH}, align:'left',
+      verticalAlign:'top', font:'display', fontWeight:900, maxLines:2, sizeRange:[shortSide*0.03,shortSide*0.062],
+      lineHeightMult:1.05, colorRole:'text'});
+    y += titleFit.lines.length*titleFit.lineHeight + shortSide*0.014;
+    placements.push({type:'shape', role:'accentBar', box:{x:safe.x,y,w:shortSide*0.14,h:shortSide*0.006}, fill:'accent'});
+    y += shortSide*0.03;
+    const dcH = shortSide*0.032;
+    placements.push({type:'text', role:'dateContext', text:doc.copy.dateContext+(doc.event.venue?' · '+doc.event.venue:''), box:{x:safe.x,y,w:safe.w,h:dcH}, align:'left',
+      font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.014,shortSide*0.02], uppercase:true, letterSpacing:1.1, colorRole:'text'});
+    y += dcH + shortSide*0.03;
+
+    const speakers = (doc.event.speakers||[]).filter(s=>s.name&&s.name.trim()).slice(0,8);
+    const partnerLogos = doc.assets.partnerLogos||[];
+    const regZoneH = shortSide*0.13 + (partnerLogos.length? shortSide*(0.022+0.012+0.046+0.014):0);
+    const gridBottom = safe.y+safe.h-regZoneH;
+    const cols = speakers.length<=3 ? 1 : 2;
+    const rows = Math.ceil(speakers.length/cols);
+    const colGap = shortSide*0.03;
+    const colW = (safe.w-colGap*(cols-1))/cols;
+    const availH = gridBottom-y;
+    const avatarSize = Math.min(shortSide*0.064, (availH/rows)*0.55);
+    const rowGap = shortSide*0.026;
+    const naturalRowH = avatarSize*1.3;
+    const naturalGridH = naturalRowH*rows + rowGap*(rows-1);
+    const rowH = naturalGridH<=availH ? naturalRowH : (availH-rowGap*(rows-1))/rows;
+    const gridStartY = y + Math.max(0, (availH-(rowH*rows+rowGap*(rows-1)))/2);
+    speakers.forEach((sp,i)=>{
+      const col = i%cols, row = Math.floor(i/cols);
+      const cellX = safe.x + col*(colW+colGap);
+      const cellY = gridStartY + row*(rowH+rowGap);
+      const avatarY = cellY + (rowH-avatarSize)/2;
+      placements.push({type:'avatar', initials:initials(sp.name), box:{x:cellX,y:avatarY,w:avatarSize,h:avatarSize}});
+      const textX = cellX+avatarSize+shortSide*0.02;
+      const textW = colW-avatarSize-shortSide*0.02;
+      const nameY = sp.title ? avatarY+avatarSize*0.06 : avatarY+avatarSize*0.28;
+      placements.push({type:'text', role:'speakerName', text:sp.name, box:{x:textX,y:nameY,w:textW,h:avatarSize*0.4}, align:'left', verticalAlign:'top',
+        font:'support', fontWeight:700, maxLines:1, sizeRange:[shortSide*0.016,shortSide*0.022], colorRole:'text'});
+      if(sp.title){
+        placements.push({type:'text', role:'speakerTitle', text:sp.title, box:{x:textX,y:avatarY+avatarSize*0.52,w:textW,h:avatarSize*0.5}, align:'left', verticalAlign:'top',
+          font:'support', fontWeight:400, maxLines:2, sizeRange:[shortSide*0.012,shortSide*0.016], lineHeightMult:1.2, colorRole:'muted'});
+      }
+    });
+
+    placements.push({type:'shape', role:'divider', box:{x:safe.x,y:gridBottom+shortSide*0.006,w:safe.w,h:shortSide*0.0025}, fill:'border'});
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:safe.x,y:gridBottom+shortSide*0.02,w:safe.w,h:shortSide*0.1}, align:'left',
+      font:'support', fontWeight:500, maxLines:2, sizeRange:[shortSide*0.012,shortSide*0.017], lineHeightMult:1.3, colorRole:'text'});
+    if(partnerLogos.length){
+      partnerLogoRow(placements, doc, safe.x, gridBottom+shortSide*0.02+shortSide*0.06, safe.w, shortSide, 'text');
+    }
+    return placements;
+  }
+};
+
+COMPOSITIONS.agenda = {
+  key:'agenda', displayName:'Agenda', minPhotos:0, maxPhotos:0,
+  canRender(doc){
+    const n = (doc.event.agenda||[]).filter(a=>a.item&&a.item.trim()).length;
+    if(n<2) return {ok:false, reason:'needs at least 2 agenda items'};
+    return {ok:true};
+  },
+  layout(doc){
+    const {W,H,margin,safe,shortSide} = baseGeometry(doc);
+    const placements = [];
+    let y = safe.y;
+    if(doc._hasLogo){
+      const ls = shortSide*0.075;
+      placements.push({type:'logo', box:{x:safe.x,y,w:ls,h:ls}});
+      y += ls + shortSide*0.035;
+    } else { y += shortSide*0.015; }
+    if(!_infoStackScratchCtx) _infoStackScratchCtx = document.createElement('canvas').getContext('2d');
+    const titleH = shortSide*0.15;
+    const titleOpts = {minPx:shortSide*0.028,maxPx:shortSide*0.058,fontWeight:900,fontFamily:doc.brand.fonts.display,maxLines:2,lineHeightMult:1.05};
+    const titleFit = fitTextToBox(_infoStackScratchCtx, doc.copy.title, {w:safe.w,h:titleH}, titleOpts);
+    placements.push({type:'text', role:'title', text:doc.copy.title, box:{x:safe.x,y,w:safe.w,h:titleH}, align:'left',
+      verticalAlign:'top', font:'display', fontWeight:900, maxLines:2, sizeRange:[shortSide*0.028,shortSide*0.058],
+      lineHeightMult:1.05, colorRole:'text'});
+    y += titleFit.lines.length*titleFit.lineHeight + shortSide*0.012;
+    placements.push({type:'shape', role:'accentBar', box:{x:safe.x,y,w:shortSide*0.14,h:shortSide*0.006}, fill:'accent'});
+    y += shortSide*0.026;
+    const dcH = shortSide*0.03;
+    placements.push({type:'text', role:'dateContext', text:doc.copy.dateContext+(doc.event.venue?' · '+doc.event.venue:''), box:{x:safe.x,y,w:safe.w,h:dcH}, align:'left',
+      font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.013,shortSide*0.019], uppercase:true, letterSpacing:1.1, colorRole:'text'});
+    y += dcH + shortSide*0.028;
+
+    const items = (doc.event.agenda||[]).filter(a=>a.item&&a.item.trim()).slice(0,10);
+    const partnerLogos = doc.assets.partnerLogos||[];
+    const regZoneH = shortSide*0.1 + (partnerLogos.length? shortSide*(0.022+0.012+0.046+0.014):0);
+    const listBottom = safe.y+safe.h-regZoneH;
+    const rowH = (listBottom-y)/items.length;
+    const timeColW = safe.w*0.24;
+    items.forEach((a,i)=>{
+      const ry = y+i*rowH;
+      placements.push({type:'text', role:'agendaTime', text:a.time||'', box:{x:safe.x,y:ry,w:timeColW,h:rowH}, align:'left', verticalAlign:'center',
+        font:'support', fontWeight:700, maxLines:2, sizeRange:[shortSide*0.013,shortSide*0.018], lineHeightMult:1.2, colorRole:'accent'});
+      placements.push({type:'text', role:'agendaItem', text:a.item, box:{x:safe.x+timeColW+shortSide*0.02,y:ry,w:safe.w-timeColW-shortSide*0.02,h:rowH}, align:'left', verticalAlign:'center',
+        font:'support', fontWeight:500, maxLines:2, sizeRange:[shortSide*0.014,shortSide*0.02], lineHeightMult:1.2, colorRole:'text'});
+      if(i<items.length-1){
+        placements.push({type:'shape', role:'divider', box:{x:safe.x,y:ry+rowH-shortSide*0.001,w:safe.w,h:shortSide*0.0018}, fill:'border'});
+      }
+    });
+
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:safe.x,y:listBottom+shortSide*0.02,w:safe.w,h:shortSide*0.08}, align:'left',
+      font:'support', fontWeight:500, maxLines:2, sizeRange:[shortSide*0.012,shortSide*0.016], lineHeightMult:1.3, colorRole:'text'});
+    if(partnerLogos.length){
+      partnerLogoRow(placements, doc, safe.x, listBottom+shortSide*0.02+shortSide*0.05, safe.w, shortSide, 'text');
+    }
+    return placements;
+  }
+};
+
+COMPOSITIONS.statement = {
+  key:'statement', displayName:'Statement', minPhotos:0, maxPhotos:1,
+  canRender(doc){
+    if(!doc.event.quote || !doc.event.quote.text || !doc.event.quote.text.trim()) return {ok:false, reason:'needs a quote'};
+    return {ok:true};
+  },
+  layout(doc){
+    const {W,H,margin,shortSide} = baseGeometry(doc);
+    const placements = [];
+    let usePhoto = false;
+    if(doc.assets.photos.length){
+      const sev = cropSeverity(doc.assets.photos[0].aspectRatio, W/H);
+      usePhoto = sev<=0.14;
+    }
+    let colorRole;
+    if(usePhoto){
+      placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:H}, fit:'cover'});
+      placements.push({type:'shape', role:'scrim', box:{x:0,y:0,w:W,h:H}, fill:'scrimDark', opacity:0.6});
+      colorRole = 'onDark';
+    } else {
+      placements.push({type:'shape', role:'bg', box:{x:0,y:0,w:W,h:H}, fill:'panel'});
+      colorRole = 'onPanel';
+    }
+    if(doc._hasLogo){
+      const ls = shortSide*0.07;
+      placements.push({type:'logo', box:{x:margin,y:margin,w:ls,h:ls}});
+    }
+    const quoteBoxH = H*0.42;
+    const quoteBoxY = H*0.26;
+    placements.push({type:'text', role:'quote', text:'"'+doc.event.quote.text.trim()+'"', box:{x:margin*1.4,y:quoteBoxY,w:W-margin*2.8,h:quoteBoxH},
+      align:'center', verticalAlign:'center', font:'display', fontWeight:700, italic:true, maxLines:6,
+      sizeRange:[shortSide*0.024,shortSide*0.052], lineHeightMult:1.25, colorRole});
+    let afterQuoteY = quoteBoxY+quoteBoxH+shortSide*0.02;
+    if(doc.event.quote.attribution){
+      placements.push({type:'shape', role:'accentBar', box:{x:W/2-shortSide*0.05,y:afterQuoteY,w:shortSide*0.1,h:shortSide*0.006}, fill:'accent'});
+      placements.push({type:'text', role:'attribution', text:doc.event.quote.attribution, box:{x:margin,y:afterQuoteY+shortSide*0.025,w:W-margin*2,h:shortSide*0.05},
+        align:'center', font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.014,shortSide*0.02], uppercase:true, letterSpacing:1.2, colorRole});
+    }
+    const footerH = shortSide*0.16;
+    const footerY = H-margin-footerH;
+    placements.push({type:'shape', role:'divider', box:{x:margin,y:footerY,w:W-margin*2,h:shortSide*0.002}, fill:'border', opacity:0.4});
+    placements.push({type:'text', role:'eventLine', text:doc.copy.title+' · '+doc.copy.dateContext, box:{x:margin,y:footerY+shortSide*0.02,w:W-margin*2,h:shortSide*0.05}, align:'center',
+      font:'support', fontWeight:700, maxLines:2, sizeRange:[shortSide*0.013,shortSide*0.019], lineHeightMult:1.2, colorRole});
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:margin,y:footerY+shortSide*0.075,w:W-margin*2,h:shortSide*0.06}, align:'center',
+      font:'support', fontWeight:500, maxLines:2, sizeRange:[shortSide*0.012,shortSide*0.016], lineHeightMult:1.3, colorRole});
+    const partnerLogos = doc.assets.partnerLogos||[];
+    if(partnerLogos.length){
+      partnerLogoRow(placements, doc, margin, footerY+shortSide*0.14, W-margin*2, shortSide, colorRole);
+    }
+    return placements;
+  }
+};
+
+COMPOSITIONS.billboard = {
+  key:'billboard', displayName:'Billboard', minPhotos:0, maxPhotos:1,
+  canRender(doc){ return {ok:true}; },
+  layout(doc){
+    const {W,H,margin,shortSide} = baseGeometry(doc);
+    const placements = [];
+    const hasPhoto = doc.assets.photos.length>0;
+    let colorRole;
+    if(hasPhoto){
+      placements.push({type:'image', role:'hero', photoIndex:0, box:{x:0,y:0,w:W,h:H}, fit:'cover'});
+      placements.push({type:'shape', role:'scrim', box:{x:0,y:0,w:W,h:H}, fill:'scrimDark', opacity:0.46});
+      colorRole = 'onDark';
+    } else {
+      placements.push({type:'shape', role:'bg', box:{x:0,y:0,w:W,h:H}, fill:'panel'});
+      colorRole = 'onPanel';
+    }
+    if(doc._hasLogo){
+      const ls = shortSide*0.065;
+      placements.push({type:'logo', box:{x:margin,y:margin,w:ls,h:ls}});
+    }
+    const titleBoxH = H*0.5;
+    const titleBoxY = H-margin-titleBoxH-shortSide*0.14;
+    placements.push({type:'text', role:'title', text:doc.copy.title, box:{x:margin,y:titleBoxY,w:W-margin*2,h:titleBoxH}, align:'left',
+      verticalAlign:'bottom', font:'display', fontWeight:900, maxLines:3, sizeRange:[shortSide*0.06,shortSide*0.155],
+      lineHeightMult:0.98, colorRole});
+    const dcY = titleBoxY+titleBoxH+shortSide*0.02;
+    placements.push({type:'text', role:'dateContext', text:doc.copy.dateContext+(doc.event.venue?' · '+doc.event.venue:''), box:{x:margin,y:dcY,w:W-margin*2,h:shortSide*0.04},
+      align:'left', font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.015,shortSide*0.021], uppercase:true, letterSpacing:1.2, colorRole});
+    const footerY = H-margin-shortSide*0.05;
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:margin,y:footerY,w:W-margin*2,h:shortSide*0.045}, align:'left',
+      font:'support', fontWeight:500, maxLines:1, sizeRange:[shortSide*0.012,shortSide*0.015], colorRole});
+    return placements;
+  }
+};
+
+COMPOSITIONS.stats = {
+  key:'stats', displayName:'Highlights', minPhotos:0, maxPhotos:0,
+  canRender(doc){
+    const n = (doc.event.highlights||[]).filter(h=>h.value&&h.value.trim()&&h.label&&h.label.trim()).length;
+    if(n<2) return {ok:false, reason:'needs at least 2 stats with both a value and a label'};
+    return {ok:true};
+  },
+  layout(doc){
+    const {W,H,margin,safe,shortSide} = baseGeometry(doc);
+    const placements = [];
+    let y = safe.y;
+    if(doc._hasLogo){
+      const ls = shortSide*0.075;
+      placements.push({type:'logo', box:{x:safe.x,y,w:ls,h:ls}});
+      y += ls + shortSide*0.04;
+    } else { y += shortSide*0.015; }
+    if(!_infoStackScratchCtx) _infoStackScratchCtx = document.createElement('canvas').getContext('2d');
+    const titleH = shortSide*0.17;
+    const titleOpts = {minPx:shortSide*0.03,maxPx:shortSide*0.065,fontWeight:900,fontFamily:doc.brand.fonts.display,maxLines:2,lineHeightMult:1.05};
+    const titleFit = fitTextToBox(_infoStackScratchCtx, doc.copy.title, {w:safe.w,h:titleH}, titleOpts);
+    placements.push({type:'text', role:'title', text:doc.copy.title, box:{x:safe.x,y,w:safe.w,h:titleH}, align:'left',
+      verticalAlign:'top', font:'display', fontWeight:900, maxLines:2, sizeRange:[shortSide*0.03,shortSide*0.065],
+      lineHeightMult:1.05, colorRole:'text'});
+    y += titleFit.lines.length*titleFit.lineHeight + shortSide*0.014;
+    placements.push({type:'shape', role:'accentBar', box:{x:safe.x,y,w:shortSide*0.14,h:shortSide*0.006}, fill:'accent'});
+    y += shortSide*0.03;
+    const dcH = shortSide*0.032;
+    placements.push({type:'text', role:'dateContext', text:doc.copy.dateContext+(doc.event.venue?' · '+doc.event.venue:''), box:{x:safe.x,y,w:safe.w,h:dcH}, align:'left',
+      font:'support', fontWeight:600, maxLines:1, sizeRange:[shortSide*0.014,shortSide*0.02], uppercase:true, letterSpacing:1.1, colorRole:'text'});
+    y += dcH + shortSide*0.045;
+
+    const stats = (doc.event.highlights||[]).filter(h=>h.value&&h.value.trim()&&h.label&&h.label.trim()).slice(0,4);
+    const partnerLogos = doc.assets.partnerLogos||[];
+    const regZoneH = shortSide*0.12 + (partnerLogos.length? shortSide*(0.022+0.012+0.046+0.014):0);
+    const gridBottom = safe.y+safe.h-regZoneH;
+    const cols = 2;
+    const rows = Math.ceil(stats.length/cols);
+    const colGap = shortSide*0.04, rowGap = shortSide*0.05;
+    const colW = (safe.w-colGap*(cols-1))/cols;
+    const availH = gridBottom-y;
+    const naturalRowH = shortSide*0.135;
+    const rowH = (naturalRowH*rows+rowGap*(rows-1))<=availH ? naturalRowH : (availH-rowGap*(rows-1))/rows;
+    const gridStartY = y + Math.max(0, (availH-(rowH*rows+rowGap*(rows-1)))/2);
+    stats.forEach((st,i)=>{
+      const col = i%cols, row = Math.floor(i/cols);
+      const cellX = safe.x+col*(colW+colGap);
+      const cellY = gridStartY+row*(rowH+rowGap);
+      placements.push({type:'text', role:'statValue', text:st.value, box:{x:cellX,y:cellY,w:colW,h:rowH*0.62}, align:'left', verticalAlign:'bottom',
+        font:'display', fontWeight:900, maxLines:1, sizeRange:[shortSide*0.05,shortSide*0.09], lineHeightMult:1, colorRole:'accent'});
+      placements.push({type:'text', role:'statLabel', text:st.label, box:{x:cellX,y:cellY+rowH*0.66,w:colW,h:rowH*0.34}, align:'left', verticalAlign:'top',
+        font:'support', fontWeight:600, maxLines:2, sizeRange:[shortSide*0.013,shortSide*0.017], uppercase:true, letterSpacing:0.8, lineHeightMult:1.2, colorRole:'muted'});
+    });
+
+    placements.push({type:'shape', role:'divider', box:{x:safe.x,y:gridBottom+shortSide*0.006,w:safe.w,h:shortSide*0.0025}, fill:'border'});
+    placements.push({type:'text', role:'registration', text:doc.copy.registration, box:{x:safe.x,y:gridBottom+shortSide*0.02,w:safe.w,h:shortSide*0.09}, align:'left',
+      font:'support', fontWeight:500, maxLines:2, sizeRange:[shortSide*0.012,shortSide*0.017], lineHeightMult:1.3, colorRole:'text'});
+    if(partnerLogos.length){
+      partnerLogoRow(placements, doc, safe.x, gridBottom+shortSide*0.02+shortSide*0.06, safe.w, shortSide, 'text');
+    }
+    return placements;
+  }
+};
+
 /* ═══════════════ 9. LAYOUT ENGINE (overflow downgrade) ═══════════════ */
 function tryLayout(doc, compositionKey){
   const comp = COMPOSITIONS[compositionKey];
@@ -796,7 +1111,7 @@ function buildLayout(doc){
     doc.layout.forEach(p=>{
       if(p.type==='text'){
         const fontFamily = p.font==='display' ? doc.brand.fonts.display : doc.brand.fonts.support;
-        const fit = fitTextToBox(scratch, p.text, p.box, {minPx:p.sizeRange[0], maxPx:p.sizeRange[1], fontWeight:p.fontWeight||400, fontFamily, maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase});
+        const fit = fitTextToBox(scratch, p.text, p.box, {minPx:p.sizeRange[0], maxPx:p.sizeRange[1], fontWeight:p.fontWeight||400, fontFamily, maxLines:p.maxLines||3, lineHeightMult:p.lineHeightMult||1.15, uppercase:!!p.uppercase, italic:!!p.italic});
         if(fit.overflow) anyOverflow = true;
       }
     });
@@ -845,7 +1160,9 @@ const PreflightQA = {
       if(st==='reject') push('images','warn', `A placed photo is being enlarged beyond its native resolution for this format (≈${Math.round(eppi)} PPI) — it may look soft.`);
     });
     if(doc.assets.photos.length && usedPhotoIdx.size===0) push('images','warn','Uploaded photo(s) not used by the current composition.');
-    if(!doc.assets.photos.length && doc.visualDirection.composition!=='minimal') push('images','fail','No photo but a photo-based composition was selected.');
+    const compDef = COMPOSITIONS[doc.visualDirection.composition];
+    const needsPhoto = compDef && compDef.minPhotos>0;
+    if(needsPhoto && usedPhotoIdx.size===0) push('images','fail','This composition needs a photo but none was placed.');
     else push('images','pass','Image placement is consistent with the chosen composition.');
 
     if(doc._hasLogo) push('branding','pass','Logo placed without distortion, clear of the title.');
@@ -1147,14 +1464,16 @@ function selectFormat(key){
 /* ── EVENT FORM BINDING ── */
 function bindEventForm(){
   const map = { 'f-name':'name','f-date':'date','f-time':'time','f-venue':'venue','f-desc':'description',
-    'f-speaker':'speaker','f-speakerTitle':'speakerTitle','f-organizer':'organizer','f-regUrl':'registrationUrl',
-    'f-cta':'cta','f-social':'social' };
+    'f-organizer':'organizer','f-regUrl':'registrationUrl', 'f-cta':'cta','f-social':'social' };
   Object.keys(map).forEach(id=>{
     document.getElementById(id).addEventListener('input', debounce(e=>{
       state.doc.event[map[id]] = e.target.value;
       saveDraft();
     },250));
   });
+  document.getElementById('f-quoteText').addEventListener('input', debounce(e=>{ state.doc.event.quote.text = e.target.value; saveDraft(); },250));
+  document.getElementById('f-quoteAttr').addEventListener('input', debounce(e=>{ state.doc.event.quote.attribution = e.target.value; saveDraft(); },250));
+
   const typeSel = document.getElementById('f-type');
   typeSel.innerHTML = EVENT_TYPES.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
   typeSel.value = state.doc.event.eventType;
@@ -1170,8 +1489,58 @@ function bindEventForm(){
       saveDraft();
     });
   });
+
+  Repeaters.speakers = makeRepeater({ containerId:'speakersList', addBtnId:'addSpeakerBtn', label:'speaker',
+    getArray:()=>state.doc.event.speakers, max:8,
+    fields:[{key:'name',placeholder:'Speaker name'},{key:'title',placeholder:'Title / organization'}] });
+  Repeaters.agenda = makeRepeater({ containerId:'agendaList', addBtnId:'addAgendaBtn', label:'agenda item',
+    getArray:()=>state.doc.event.agenda, max:10,
+    fields:[{key:'time',placeholder:'9:00 AM',narrow:true},{key:'item',placeholder:'Session or activity'}] });
+  Repeaters.highlights = makeRepeater({ containerId:'highlightsList', addBtnId:'addHighlightBtn', label:'stat',
+    getArray:()=>state.doc.event.highlights, max:4,
+    fields:[{key:'value',placeholder:'500+',narrow:true},{key:'label',placeholder:'Attendees expected'}] });
 }
 function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ── REPEATABLE FIELD GROUPS (speakers / agenda / highlights) ── */
+const Repeaters = {};
+function makeRepeater(opts){
+  function render(){
+    const arr = opts.getArray();
+    const container = document.getElementById(opts.containerId);
+    container.innerHTML = arr.map((row,i)=>`
+      <div class="repeater-row">
+        ${opts.fields.map(f=>`<input type="text" class="${f.narrow?'repeater-narrow':''}" data-idx="${i}" data-field="${f.key}" placeholder="${esc(f.placeholder)}" value="${esc(row[f.key]||'')}">`).join('')}
+        <button type="button" class="repeater-remove" data-idx="${i}" title="Remove ${esc(opts.label)}">×</button>
+      </div>`).join('');
+    container.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const i = +e.target.dataset.idx, f = e.target.dataset.field;
+        opts.getArray()[i][f] = e.target.value;
+        saveDraft();
+      });
+    });
+    container.querySelectorAll('.repeater-remove').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        opts.getArray().splice(+btn.dataset.idx,1);
+        render();
+        saveDraft();
+      });
+    });
+    const addBtn = document.getElementById(opts.addBtnId);
+    addBtn.disabled = opts.max ? arr.length>=opts.max : false;
+  }
+  document.getElementById(opts.addBtnId).addEventListener('click', ()=>{
+    const arr = opts.getArray();
+    if(opts.max && arr.length>=opts.max) return;
+    const row = {}; opts.fields.forEach(f=>row[f.key]='');
+    arr.push(row);
+    render();
+    saveDraft();
+  });
+  render();
+  return { render };
+}
 
 /* ── DRAFT PERSISTENCE (event fields + format only — photos are not persisted) ── */
 const DRAFT_KEY = 'posterGenDraft';
@@ -1191,10 +1560,14 @@ function loadDraft(){
 }
 function applyDraftToForm(){
   const map = { 'f-name':'name','f-date':'date','f-time':'time','f-venue':'venue','f-desc':'description',
-    'f-speaker':'speaker','f-speakerTitle':'speakerTitle','f-organizer':'organizer','f-regUrl':'registrationUrl',
-    'f-cta':'cta','f-social':'social' };
+    'f-organizer':'organizer','f-regUrl':'registrationUrl', 'f-cta':'cta','f-social':'social' };
   Object.keys(map).forEach(id=>{ document.getElementById(id).value = state.doc.event[map[id]]||''; });
   document.getElementById('f-type').value = state.doc.event.eventType;
+  document.getElementById('f-quoteText').value = state.doc.event.quote.text||'';
+  document.getElementById('f-quoteAttr').value = state.doc.event.quote.attribution||'';
+  if(Repeaters.speakers) Repeaters.speakers.render();
+  if(Repeaters.agenda) Repeaters.agenda.render();
+  if(Repeaters.highlights) Repeaters.highlights.render();
 }
 
 /* ═══════════════ 14. ADMIN BRAND EDITOR ═══════════════ */

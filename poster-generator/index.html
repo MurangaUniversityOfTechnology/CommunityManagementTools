@@ -69,16 +69,6 @@
     </div>
     <div class="field-row">
       <div class="field-group">
-        <label>Speaker name <span class="opt">(optional)</span></label>
-        <input type="text" id="f-speaker">
-      </div>
-      <div class="field-group">
-        <label>Speaker title <span class="opt">(optional)</span></label>
-        <input type="text" id="f-speakerTitle">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field-group">
         <label>Organizer / host</label>
         <input type="text" id="f-organizer" placeholder="MUT Tech Community">
       </div>
@@ -97,6 +87,32 @@
         <input type="text" id="f-social" placeholder="@mut_tech_community">
       </div>
     </div>
+
+    <details class="enrich-details">
+      <summary>Enrich this poster <span class="opt" style="text-transform:none">— optional, unlocks richer designs</span></summary>
+      <div class="enrich-body">
+        <div class="repeater-group">
+          <label>Speakers <span class="opt">(2+ unlocks the Speaker Lineup design)</span></label>
+          <div class="repeater-list" id="speakersList"></div>
+          <button type="button" class="btn-secondary repeater-add" id="addSpeakerBtn">+ Add speaker</button>
+        </div>
+        <div class="repeater-group">
+          <label>Agenda <span class="opt">(2+ items unlocks the Agenda design)</span></label>
+          <div class="repeater-list" id="agendaList"></div>
+          <button type="button" class="btn-secondary repeater-add" id="addAgendaBtn">+ Add agenda item</button>
+        </div>
+        <div class="repeater-group">
+          <label>Key numbers <span class="opt">(2+ unlocks the Highlights design, e.g. "500+" / "Attendees")</span></label>
+          <div class="repeater-list" id="highlightsList"></div>
+          <button type="button" class="btn-secondary repeater-add" id="addHighlightBtn">+ Add a number</button>
+        </div>
+        <div class="repeater-group">
+          <label>Quote <span class="opt">(unlocks the Statement design)</span></label>
+          <textarea id="f-quoteText" placeholder="A short, compelling quote about the event or from a speaker."></textarea>
+          <input type="text" id="f-quoteAttr" placeholder="Attribution, e.g. Jane Doe, Speaker" style="margin-top:8px">
+        </div>
+      </div>
+    </details>
 
     <div class="section-divider">Visual tone <span class="opt" style="text-transform:none">(optional nudge, not required)</span></div>
     <div class="tone-row" id="toneRow"></div>
